@@ -1,0 +1,92 @@
+.warning {
+    color: #ff0000;
+    font-size: 13px;
+    font-style: italic;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.form label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form input[type=text] {
+    width: calc(100% - 14px);
+    font-size: 18px;
+    line-height: 18px;
+    padding: 7px;
+    border: none;
+    background-color: #ffffff;
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.form input[type=text]:focus {
+    border: none;
+    outline: none;
+    color:#1a2c62;
+}
+
+#firstNameInput {
+    width: calc(50% - 19px);
+    margin-right: 10px;
+}
+
+#lastNameInput {
+    width: calc(50% - 19px);
+}
+
+#cityInput {
+    width: calc(100% - 218px);
+    margin-right: 10px;
+}
+
+#stateInput {
+    padding: 7px;
+    background-color: #ffffff;
+    font-size: 18px;
+    line-height: 18px;
+    border: none;
+    outline: none;
+    border-radius: 10px;
+    width: 70px;
+    margin-right: 10px;
+}
+
+#zipCodeInput {
+    width: 100px;
+}
+
+#birthdayColumn {
+    width: 164px;
+    margin-right: 10px;
+}
+
+#birthdayLabel {
+    display: inline;
+    margin-right: 5px;
+}
+
+#birthdayInput {
+    padding: 7px;
+    background-color: #ffffff;
+    font-size: 18px;
+    line-height: 18px;
+    border: none;
+    outline: none;
+    border-radius: 10px;
+    width: 150px;
+}
+
+.column {
+    display: inline-block;
+}
+
+#ssnColumn {
+    width: 150px;
+}
+
+#ssnInput {
+    width: calc(100% - 14px);
+}

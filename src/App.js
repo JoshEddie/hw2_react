@@ -1,24 +1,30 @@
-import logo from './logo.svg';
-import './App.css';
+import Main from './components/Main'
+import AccountSearch from './components/AccountSearch'
+import Account from './components/Account'
+import './css/main.css';
+
+import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
+import CreateAccount from './components/CreateAccount';
 
 function App() {
+
+  const { accountNum } = useParams();
+  
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Main />}>
+          <Route path="" element={<AccountSearch />} />
+          <Route path="/account/create" element={<CreateAccount />} />
+          <Route path="account/:acountNumber" element={<Account />} />
+        </Route>
+          {/* <Route path="info" element={<ImageBrowser/>} />
+          <Route path="bill" element={<ImageBrowser/>} />
+          <Route path="lines" element={<ImageBrowser/>} />
+        </Route>
+        <Route path="/callhistory" element={<Account />} /> */}
+      </Routes>
+    </BrowserRouter>
   );
 }
 

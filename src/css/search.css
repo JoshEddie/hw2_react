@@ -1,0 +1,26 @@
+#searchBarContainer {
+    min-width: 270px;
+    margin: 5px auto;
+    width: 50%;
+    background-color: #ffffff;
+    border-radius: 20px;
+    padding: 7px 15px;
+}
+
+#search-icon {
+    width: 20px;
+    fill: #ffaa00;
+}
+
+#searchBarContainer input {
+    width: calc(100% - 27px);
+    font-size: 18px;
+    padding-left: 7px;
+    border: none;
+}
+
+#searchBarContainer input:focus {
+    border: none;
+    outline: none;
+    color:#1a2c62;
+}

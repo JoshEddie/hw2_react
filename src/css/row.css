@@ -1,0 +1,40 @@
+#tableWrapper {
+    margin-top: 10px;
+    height: calc(100% - 100px);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+#scrollTable {
+    height: 50vh;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+.tableList {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tableList th {
+    text-align: center;
+    font-weight: 400;
+    background-color: #1a2c62;
+    padding: 5px;
+    color: #ffffff;
+}
+
+.tableList td {
+    border:1px solid #1a2c62;
+    padding: 5px;
+}
+
+.tableList tr:hover {
+    background-color: #ffaa00;
+    color: #1a2c62;
+    cursor: pointer;
+}
+
+.tableList tr:hover td {
+    color: #1a2c62;
+}
