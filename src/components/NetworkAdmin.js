@@ -12,6 +12,7 @@ export default function NetworkAdmin() {
     const[databaseIntialized, setDatabaseIntialized] = useState(false)
     const[rowHeaders, setRowHeaders] = useState([])
     const[rows, setRows] = useState([])
+    const[intializing, setIntialzing] = useState(false)
 
     function getTable(table) {
         fetch(`http://localhost:3002/api/get/${table}`)
@@ -20,7 +21,6 @@ export default function NetworkAdmin() {
             return response.json();
         })
         .then(data => {
-            console.log(data)
             if(data.name == "error") {
                 console.log("Error")
                 return;
@@ -49,12 +49,16 @@ export default function NetworkAdmin() {
     }
 
     function intializeDatabase() {
+        setIntialzing(true)
         fetch(`http://localhost:3002/api/intializeDatabase`)
         .then(response => {
-            return response.json();
+            return response;
         })
         .then(data => {
-            // setAccountList([...data]);
+            console.log("Database Intialized")
+            setDatabaseIntialized(true)
+            getTable('account');
+            setIntialzing(false)
         });
     }
 
@@ -72,23 +76,28 @@ export default function NetworkAdmin() {
         <button id="switchtoAdmin" onClick={() => navigate('/')}>Account Search</button>
         <section className="infoSection">
         <h3>Network Admin</h3>
-        {/* <h4>{databaseIntialized ? "Database Intialized" : "Database Needs to be Intialized"}</h4> */}
-        {databaseIntialized ? 
+        {intializing ? 
+            <h3>Database Intializing...</h3>
+            : 
             <>
-            <nav id="viewTables">
-                <button onClick={() => getTable('account')}>View Account</button>
-                <button onClick={() => getTable('customer')}>View Customer</button>
-                <button onClick={() => getTable('phone_number')}>View Phone Number</button>
-                <button onClick={() => getTable('phone_model')}>View Phone Model</button>
-                <button onClick={() => getTable('call')}>View Call</button>
-                <button onClick={() => getTable('data')}>View Data</button>
-                <button onClick={() => getTable('payment')}>View Payment</button>
-                <button onClick={() => getTable('plan')}>View Plan</button>
-            </nav>
-            <Table headers={rowHeaders} rows={rowObjects}/>
+            {databaseIntialized ? 
+                <>
+                <nav id="viewTables">
+                    <button onClick={() => getTable('account')}>View Account</button>
+                    <button onClick={() => getTable('customer')}>View Customer</button>
+                    <button onClick={() => getTable('phone_number')}>View Phone Number</button>
+                    <button onClick={() => getTable('phone_model')}>View Phone Model</button>
+                    <button onClick={() => getTable('call')}>View Call</button>
+                    <button onClick={() => getTable('data')}>View Data</button>
+                    <button onClick={() => getTable('payment')}>View Payment</button>
+                    <button onClick={() => getTable('plan')}>View Plan</button>
+                </nav>
+                <Table headers={rowHeaders} rows={rowObjects}/>
+                </>
+                :
+                <button onClick={() => intializeDatabase()}>Intialize Database</button>
+            }
             </>
-        :
-        <button onClick={() => intializeDatabase()}>Intialize Database</button>
         }
         
         </section>

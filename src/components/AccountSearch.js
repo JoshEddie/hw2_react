@@ -6,7 +6,7 @@ import CreateAccount from './CreateAccount'
 import '../css/row.css'
 import '../css/search.css'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 var customer = [
@@ -42,6 +42,22 @@ export default function AccountSearch() {
     const [showAccounts, setShowAccounts] = useState(false)
     const [searchType, setSearchType] = useState("Phone Number")
 
+    function checkifAccountsExist() {
+
+        fetch(`http://localhost:3002/api/get/account`)
+        .then(response => {
+            return response.json();
+        })
+        .then(data => {
+            if(data.name == "error") {
+                console.log("No accounts exist, please intialize datbase")
+                navigate('/admin')
+                return;
+            }
+        })
+        return;
+    }
+
     function getAccount(input) {
         setSearchInput(input)
         if(input.length > 0) {
@@ -58,6 +74,10 @@ export default function AccountSearch() {
             setShowAccounts(false)
         }
       }
+
+    useEffect (() => {
+        checkifAccountsExist();
+    }, []);
 
     var accounts = []
     for (var i = 0; i < accountList.length; i++) {
