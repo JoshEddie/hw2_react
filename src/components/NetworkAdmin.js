@@ -13,6 +13,7 @@ export default function NetworkAdmin() {
     const[rowHeaders, setRowHeaders] = useState([])
     const[rows, setRows] = useState([])
     const[intializing, setIntialzing] = useState(false)
+    const[intializingStatus, setIntialzingStatus] = useState('')
 
     function getTable(table) {
         fetch(`http://localhost:3002/api/get/${table}`)
@@ -52,14 +53,37 @@ export default function NetworkAdmin() {
         setIntialzing(true)
         fetch(`http://localhost:3002/api/intializeDatabase`)
         .then(response => {
-            return response;
+            return response.text();
         })
         .then(data => {
-            console.log("Database Intialized")
-            setDatabaseIntialized(true)
-            getTable('account');
-            setIntialzing(false)
+            console.log(data)
+            setIntialzingStatus(data)
+            intializeCallsData(1);
         });
+        
+    }
+
+    function intializeCallsData(month) {
+
+        fetch(`http://localhost:3002/api/intializeCallsData/${month}`)
+        .then(response => {
+            return response.text();
+        })
+        .then(data => {
+            console.log(data)
+            if (month == 10) {
+                setDatabaseIntialized(true)
+                getTable('account');
+                setIntialzing(false)
+                return;
+            }
+            else {
+                setIntialzingStatus(data)
+                intializeCallsData(++month)
+                return;
+            }
+        });
+
     }
 
     useEffect (() => {
@@ -77,7 +101,10 @@ export default function NetworkAdmin() {
         <section className="infoSection">
         <h3>Network Admin</h3>
         {intializing ? 
+            <>
             <h3>Database Intializing...</h3>
+            <h5>{intializingStatus}</h5>
+            </>
             : 
             <>
             {databaseIntialized ? 

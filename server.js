@@ -408,168 +408,294 @@ app.get('/api/intializeDatabase', async (req, res) => {
 
         console.log("Customers intialized")
 
-        const phoneNumbers = await pool.query(`
-            SELECT number FROM phone_number;
-        `)
-
-        console.log("Intializing Phone Calls & Date Use")
-        for(let month = 1; month <= 10; month++) {
-            for(let i = 0; i < phoneNumbers.rows.length; i++) {
-
-                const account_ssn_planType = await pool.query(`
-                    SELECT account.account_ssn, account.plan_type FROM account
-                    JOIN customer ON account.account_ssn = customer.account_holder_ssn
-                    JOIN phone_number ON phone_number.user_ssn = customer.ssn
-                    WHERE phone_number.number = '${phoneNumbers.rows[i].number}'
-                    GROUP BY account.account_ssn, account.plan_type;
-                `)
-                
-                const prices = await pool.query(`
-                    SELECT call_price, data_price FROM plan
-                    WHERE plan_name = '${account_ssn_planType.rows[0].plan_type}';
-                `)
-
-                for(let call_number = 0; call_number < Math.round(Math.random() * 50 + 1); call_number++) {
-                    
-                    var call_length = Math.round(360 / (Math.random() * 360 + 1))
-                    var day = (Math.round(Math.random() * 28)).toString().padStart(2, '0');
-
-                    var phone_to = 0;
-
-                    do {
-                        phone_to = Math.round(Math.random() * (phoneNumbers.rows.length - 1));
-                    } while(i === phone_to);
-
-                    let date = "2023-" + month.toString().padStart(2, '0') + "-" + (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
-                    let call_cost = call_length * Number(prices.rows[0].call_price);
-
-                    try {
-                        await pool.query(`BEGIN`);
-                        phoneCall(phoneNumbers.rows[i].number, phoneNumbers.rows[phone_to].number, call_length, date);
-                        chargeBalance(call_cost * -1, account_ssn_planType.rows[0].account_ssn)
-
-                        const balance = await pool.query(`
-                            SELECT balance FROM account
-                            WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
-                        `);
-                        if(account_ssn_planType.rows[0].plan_type == 'Pre-Paid' && balance.rows[0].balance < 0) {
-                            payment(date, 4000, account_ssn_planType.rows[0].account_ssn);
-                            chargeBalance(4000, account_ssn_planType.rows[0].account_ssn)
-                        }
-
-                        await pool.query(`COMMIT`);
-                        await pool.query(`END`);
-
-                    }
-                    catch (err) {
-                        await pool.query(`ROLLBACK`);
-                        console.log("Error 4: " + err.message)
-                    }
-
-                }
-
-                for(let data_use = 0; data_use < Math.round(Math.random() * 50 + 1); data_use++) {
-                    var mb_used = Math.floor(500 / (Math.random() * 500 + 1)) + Math.random();
-                    var day = (Math.round(Math.random() * 28)).toString().padStart(2, '0');
-
-                    var phone_to = 0;
-
-                    do {
-                        phone_to = Math.round(Math.random() * phoneNumbers.rows.length);
-                    } while(i === phone_to);
-
-                    let date = "2023-" + month.toString().padStart(2, '0') + "-" + (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
-                    let data_cost = Math.floor((mb_used / 1000) * Number(prices.rows[0].data_price));
-
-                    try {
-                        dataUse(phoneNumbers.rows[i].number, mb_used, date);
-                    }
-                    catch (err) {console.log("Error 5: " + err.message)}
-
-                    try {
-                        await pool.query(`BEGIN`);
-
-                        dataUse(phoneNumbers.rows[i].number, mb_used, date);
-                        chargeBalance(data_cost * -1, account_ssn_planType.rows[0].account_ssn)
-
-                        const balance = await pool.query(`
-                            SELECT balance FROM account
-                            WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
-                        `);
-                        if(account_ssn_planType.rows[0].plan_type == 'Pre-Paid' && balance.rows[0].balance < 0) {
-                            payment(date, 4000, account_ssn_planType.rows[0].account_ssn);
-                            chargeBalance(4000, account_ssn_planType.rows[0].account_ssn)
-                        }
-
-                        await pool.query(`COMMIT`);
-                        await pool.query(`END`);
-
-                    }
-                    catch (err) {
-                        await pool.query(`ROLLBACK`);
-                        console.log("Error 6: " + err.message)
-                    }
-
-                }
-
-                if (month != 10) {
-                    try {
-                        const balance = await pool.query(`
-                            SELECT balance FROM account
-                            WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
-                        `);
-
-                        let date = "2023-" + month.toString().padStart(2, '0') + "-28";
-
-                        if(balance.rows[0].balance < 0 && account_ssn_planType.rows[0].plan_type != 'Pre-Paid') {
-
-                            await pool.query(`BEGIN`);
-
-                            payment(date, balance.rows[0].balance * -1, account_ssn_planType.rows[0].account_ssn);
-                            chargeBalance(balance.rows[0].balance * -1, account_ssn_planType.rows[0].account_ssn)
-
-                            await pool.query(`COMMIT`);
-                            await pool.query(`END`);
-
-                        }
-
-                    }
-                    catch (err) {
-                        await pool.query(`ROLLBACK`);
-                        console.log("Error 7: " + err.message)
-                    }
-                }
-
-            }
-
-            console.log("Calls & Data Uses for " + month + "/2023 intialized")
-
-        }
-        
-        // const account_balances = await pool.query(`
-        //     SELECT account_ssn, plan_type, balance FROM account;
+        // const phoneNumbers = await pool.query(`
+        //     SELECT number FROM phone_number;
         // `)
-        // for (let i = 0; i < account_balances.rows.length; i++) {
 
-        //     if(account_balances.rows[i].plan_type != "Pre-Paid") {
+        // console.log("Intializing Phone Calls & Date Use")
+        // for(let month = 1; month <= 10; month++) {
+        //     for(let i = 0; i < phoneNumbers.rows.length; i++) {
 
-        //         await pool.query(`BEGIN`);
+        //         const account_ssn_planType = await pool.query(`
+        //             SELECT account.account_ssn, account.plan_type FROM account
+        //             JOIN customer ON account.account_ssn = customer.account_holder_ssn
+        //             JOIN phone_number ON phone_number.user_ssn = customer.ssn
+        //             WHERE phone_number.number = '${phoneNumbers.rows[i].number}'
+        //             GROUP BY account.account_ssn, account.plan_type;
+        //         `)
+                
+        //         const prices = await pool.query(`
+        //             SELECT call_price, data_price FROM plan
+        //             WHERE plan_name = '${account_ssn_planType.rows[0].plan_type}';
+        //         `)
 
-        //         payment('2023-10-31', account_balances.rows[i].balance * -1, account_balances.rows[i].account_ssn);
-        //         chargeBalance(account_balances.rows[i].balance * -1, account_balances.rows[i].account_ssn)
+        //         for(let call_number = 0; call_number < Math.round(Math.random() * 50 + 1); call_number++) {
+                    
+        //             var call_length = Math.round(360 / (Math.random() * 360 + 1))
+        //             var day = (Math.round(Math.random() * 28)).toString().padStart(2, '0');
 
-        //         await pool.query(`COMMIT`);
-        //         await pool.query(`END`);
+        //             var phone_to = 0;
+
+        //             do {
+        //                 phone_to = Math.round(Math.random() * (phoneNumbers.rows.length - 1));
+        //             } while(i === phone_to);
+
+        //             let date = "2023-" + month.toString().padStart(2, '0') + "-" + (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
+        //             let call_cost = call_length * Number(prices.rows[0].call_price);
+
+        //             try {
+        //                 await pool.query(`BEGIN`);
+        //                 phoneCall(phoneNumbers.rows[i].number, phoneNumbers.rows[phone_to].number, call_length, date);
+        //                 chargeBalance(call_cost * -1, account_ssn_planType.rows[0].account_ssn)
+
+        //                 const balance = await pool.query(`
+        //                     SELECT balance FROM account
+        //                     WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
+        //                 `);
+        //                 if(account_ssn_planType.rows[0].plan_type == 'Pre-Paid' && balance.rows[0].balance < 0) {
+        //                     payment(date, 4000, account_ssn_planType.rows[0].account_ssn);
+        //                     chargeBalance(4000, account_ssn_planType.rows[0].account_ssn)
+        //                 }
+
+        //                 await pool.query(`COMMIT`);
+        //                 await pool.query(`END`);
+
+        //             }
+        //             catch (err) {
+        //                 await pool.query(`ROLLBACK`);
+        //                 console.log("Error 4: " + err.message)
+        //             }
+
+        //         }
+
+        //         for(let data_use = 0; data_use < Math.round(Math.random() * 50 + 1); data_use++) {
+        //             var mb_used = Math.floor(500 / (Math.random() * 500 + 1)) + Math.random();
+        //             var day = (Math.round(Math.random() * 28)).toString().padStart(2, '0');
+
+        //             var phone_to = 0;
+
+        //             do {
+        //                 phone_to = Math.round(Math.random() * phoneNumbers.rows.length);
+        //             } while(i === phone_to);
+
+        //             let date = "2023-" + month.toString().padStart(2, '0') + "-" + (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
+        //             let data_cost = Math.floor((mb_used / 1000) * Number(prices.rows[0].data_price));
+
+        //             try {
+        //                 dataUse(phoneNumbers.rows[i].number, mb_used, date);
+        //             }
+        //             catch (err) {console.log("Error 5: " + err.message)}
+
+        //             try {
+        //                 await pool.query(`BEGIN`);
+
+        //                 dataUse(phoneNumbers.rows[i].number, mb_used, date);
+        //                 chargeBalance(data_cost * -1, account_ssn_planType.rows[0].account_ssn)
+
+        //                 const balance = await pool.query(`
+        //                     SELECT balance FROM account
+        //                     WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
+        //                 `);
+        //                 if(account_ssn_planType.rows[0].plan_type == 'Pre-Paid' && balance.rows[0].balance < 0) {
+        //                     payment(date, 4000, account_ssn_planType.rows[0].account_ssn);
+        //                     chargeBalance(4000, account_ssn_planType.rows[0].account_ssn)
+        //                 }
+
+        //                 await pool.query(`COMMIT`);
+        //                 await pool.query(`END`);
+
+        //             }
+        //             catch (err) {
+        //                 await pool.query(`ROLLBACK`);
+        //                 console.log("Error 6: " + err.message)
+        //             }
+
+        //         }
+
+        //         if (month != 10) {
+        //             try {
+        //                 const balance = await pool.query(`
+        //                     SELECT balance FROM account
+        //                     WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
+        //                 `);
+
+        //                 let date = "2023-" + month.toString().padStart(2, '0') + "-28";
+
+        //                 if(balance.rows[0].balance < 0 && account_ssn_planType.rows[0].plan_type != 'Pre-Paid') {
+
+        //                     await pool.query(`BEGIN`);
+
+        //                     payment(date, balance.rows[0].balance * -1, account_ssn_planType.rows[0].account_ssn);
+        //                     chargeBalance(balance.rows[0].balance * -1, account_ssn_planType.rows[0].account_ssn)
+
+        //                     await pool.query(`COMMIT`);
+        //                     await pool.query(`END`);
+
+        //                 }
+
+        //             }
+        //             catch (err) {
+        //                 await pool.query(`ROLLBACK`);
+        //                 console.log("Error 7: " + err.message)
+        //             }
+        //         }
+
         //     }
 
-        // } 
+        //     console.log("Calls & Data Uses for " + month + "/2023 intialized")
+
+        // }
 
         console.log("Database Intialized!")
 
     }
 
     res.send(`
-        Database Intialized!
+        Accounts & Customers Intialized.
+    `);
+
+})
+
+app.get("/api/intializeCallsData/:month", async(req, res) => {
+
+    const month = req.params.month;
+
+    const phoneNumbers = await pool.query(`
+        SELECT number FROM phone_number;
+    `)
+
+    for(let i = 0; i < phoneNumbers.rows.length; i++) {
+
+        const account_ssn_planType = await pool.query(`
+            SELECT account.account_ssn, account.plan_type FROM account
+            JOIN customer ON account.account_ssn = customer.account_holder_ssn
+            JOIN phone_number ON phone_number.user_ssn = customer.ssn
+            WHERE phone_number.number = '${phoneNumbers.rows[i].number}'
+            GROUP BY account.account_ssn, account.plan_type;
+        `)
+        
+        const prices = await pool.query(`
+            SELECT call_price, data_price FROM plan
+            WHERE plan_name = '${account_ssn_planType.rows[0].plan_type}';
+        `)
+
+        for(let call_number = 0; call_number < Math.round(Math.random() * 50 + 1); call_number++) {
+            
+            var call_length = Math.round(360 / (Math.random() * 360 + 1))
+            var day = (Math.round(Math.random() * 28)).toString().padStart(2, '0');
+
+            var phone_to = 0;
+
+            do {
+                phone_to = Math.round(Math.random() * (phoneNumbers.rows.length - 1));
+            } while(i === phone_to);
+
+            let date = "2023-" + month.toString().padStart(2, '0') + "-" + (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
+            let call_cost = call_length * Number(prices.rows[0].call_price);
+
+            try {
+                await pool.query(`BEGIN`);
+                phoneCall(phoneNumbers.rows[i].number, phoneNumbers.rows[phone_to].number, call_length, date);
+                chargeBalance(call_cost * -1, account_ssn_planType.rows[0].account_ssn)
+
+                const balance = await pool.query(`
+                    SELECT balance FROM account
+                    WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
+                `);
+                if(account_ssn_planType.rows[0].plan_type == 'Pre-Paid' && balance.rows[0].balance < 0) {
+                    payment(date, 4000, account_ssn_planType.rows[0].account_ssn);
+                    chargeBalance(4000, account_ssn_planType.rows[0].account_ssn)
+                }
+
+                await pool.query(`COMMIT`);
+                await pool.query(`END`);
+
+            }
+            catch (err) {
+                await pool.query(`ROLLBACK`);
+                console.log("Error 4: " + err.message)
+            }
+
+        }
+
+        for(let data_use = 0; data_use < Math.round(Math.random() * 50 + 1); data_use++) {
+            var mb_used = Math.floor(500 / (Math.random() * 500 + 1)) + Math.random();
+            var day = (Math.round(Math.random() * 28)).toString().padStart(2, '0');
+
+            var phone_to = 0;
+
+            do {
+                phone_to = Math.round(Math.random() * phoneNumbers.rows.length);
+            } while(i === phone_to);
+
+            let date = "2023-" + month.toString().padStart(2, '0') + "-" + (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
+            let data_cost = Math.floor((mb_used / 1000) * Number(prices.rows[0].data_price));
+
+            try {
+                dataUse(phoneNumbers.rows[i].number, mb_used, date);
+            }
+            catch (err) {console.log("Error 5: " + err.message)}
+
+            try {
+                await pool.query(`BEGIN`);
+
+                dataUse(phoneNumbers.rows[i].number, mb_used, date);
+                chargeBalance(data_cost * -1, account_ssn_planType.rows[0].account_ssn)
+
+                const balance = await pool.query(`
+                    SELECT balance FROM account
+                    WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
+                `);
+                if(account_ssn_planType.rows[0].plan_type == 'Pre-Paid' && balance.rows[0].balance < 0) {
+                    payment(date, 4000, account_ssn_planType.rows[0].account_ssn);
+                    chargeBalance(4000, account_ssn_planType.rows[0].account_ssn)
+                }
+
+                await pool.query(`COMMIT`);
+                await pool.query(`END`);
+
+            }
+            catch (err) {
+                await pool.query(`ROLLBACK`);
+                console.log("Error 6: " + err.message)
+            }
+
+        }
+
+        if (month != 10) {
+            try {
+                const balance = await pool.query(`
+                    SELECT balance FROM account
+                    WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
+                `);
+
+                let date = "2023-" + month.toString().padStart(2, '0') + "-28";
+
+                if(balance.rows[0].balance < 0 && account_ssn_planType.rows[0].plan_type != 'Pre-Paid') {
+
+                    await pool.query(`BEGIN`);
+
+                    payment(date, balance.rows[0].balance * -1, account_ssn_planType.rows[0].account_ssn);
+                    chargeBalance(balance.rows[0].balance * -1, account_ssn_planType.rows[0].account_ssn)
+
+                    await pool.query(`COMMIT`);
+                    await pool.query(`END`);
+
+                }
+
+            }
+            catch (err) {
+                await pool.query(`ROLLBACK`);
+                console.log("Error 7: " + err.message)
+            }
+        }
+
+    }
+
+    console.log("Calls & Data Uses for " + month + "/2023 intialized")
+
+    res.send(`
+        Calls & Data Uses for ${month}/2023 intialized
     `);
 
 })
@@ -583,7 +709,6 @@ app.get("/api/get/:table", async(req, res) => {
     res.send(result.rows)
     }
     catch (err) {
-        console.log(err)
         res.send(err)
     }
 
