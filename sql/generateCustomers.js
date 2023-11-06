@@ -40,25 +40,6 @@ app.get('/', async (req, res) => {
         ($1, $2, $3, $4, $5);
         `, [first_name, last_name, account_ssn[i], dob, account_ssn[i]]);
     }
-    // try {
-    //     const result = await pool.query(`
-    //         SELECT t.*, p.name AS product_name, p.price AS product_price, c.name AS customer_name 
-    //         FROM transactions t 
-    //         JOIN product p ON t.product_id = p.product_id 
-    //         JOIN customer c ON t.customer_id = c.customer_id
-    //         WHERE t.customer_id = $1
-    //     `, [customerId]);
-
-    //     if (result.rows.length > 0) {
-    //         customerName = result.rows[0].customer_name; 
-    //         transactionsHtml = result.rows.map(row => {
-    //             totalPrice += row.product_price;
-    //             return `<p>ID: ${row.t_id}, Product: ${row.product_name}, Price: ${row.product_price}, Date: ${row.transaction_date}</p>`;
-    //         }).join('');
-    //     }
-    // } catch (err) {
-    //     return res.status(500).send("Error: " + err.message);
-    // }
     
     res.send(`
         <!DOCTYPE html>

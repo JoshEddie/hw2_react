@@ -1,0 +1,62 @@
+#accountNav {
+    background-color:#1a2c62;
+    border-radius: 12px;
+    margin: 10px 0;
+}
+
+#accountNav button {
+    display: inline-block;
+    width: calc(100% / 6);
+    border-radius: 0;
+    margin: 0;
+    background-color: transparent;
+}
+
+#accountNav:hover {
+    background-color: transparent;
+}
+
+#accountNav:hover button {
+    color:#1a2c62;
+}
+
+#accountNav button:hover {
+    background-color:#ffaa00;
+    border-radius: 12px;
+}
+
+#paymentInputWrapper {
+    margin: 0 auto;
+    background-color: #ffffff;
+    width: 200px;
+    padding: 7px;
+    border-radius: 10px;
+    font-size: 18px;
+    border: 2px solid #ffffff;
+}
+
+#paymentInputWrapper input {
+    width: 183px;
+    padding-left: 5px;
+    font-size: 18px;
+    line-height: 18px;
+    border: none;
+}
+
+#paymentInputWrapper:focus-within {
+    border-color: #ffaa00;
+}
+
+#paymentInputWrapper input:focus {
+    border: none;
+    outline: none;
+    color:#1a2c62;
+}
+
+main h3 .positive {
+    color: #55a92b;
+}
+
+main h3 .negative {
+    color: #bc270d;
+}

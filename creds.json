@@ -1,7 +1,7 @@
 {
     "user": "josheddie",
     "host": "localhost",
-    "database": "hw2_test",
+    "database": "hw2_phase1",
     "password": "postgres1234",
     "port": 5432
 }

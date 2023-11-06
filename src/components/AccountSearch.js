@@ -40,17 +40,16 @@ export default function AccountSearch() {
     const [searchInput, setSearchInput] = useState("")
     const [accountList, setAccountList] = useState(false);
     const [showAccounts, setShowAccounts] = useState(false)
-    const [createAccount, setCreateAccount] = useState(false)
+    const [searchType, setSearchType] = useState("Phone Number")
 
-    function getAccount(number) {
-        setSearchInput(number)
-        if(number.length > 0) {
-            fetch(`http://localhost:3002/api/accounts/${number}`)
+    function getAccount(input) {
+        setSearchInput(input)
+        if(input.length > 0) {
+            fetch(`http://localhost:3002/api/accounts/${searchType}&${input}`)
             .then(response => {
                 return response.json();
             })
             .then(data => {
-                // console.log("DATA: \n" + data.split(','))
                 setAccountList([...data]);
             });
             setShowAccounts(true)
@@ -66,21 +65,17 @@ export default function AccountSearch() {
         accounts.push(<Row type={'cell'} items = {accountList[i]} link = {`/account/${accountList[i][3]}`} />);
     }
 
-    // console.log(accounts);
-
     var headers = ['Phone', 'First Name', 'Last Name', 'Account Number']
 
     return (
         <section class="infoSection">
 
             <h3>Which Account do you need?</h3>
-            <SearchBar searchInput={searchInput} getAccount={getAccount} defaultText={"Search by Phone Number"} />
+            <SearchBar searchInput={searchInput} searchType={setSearchType} getAccount={getAccount} defaultText={`Search by ${searchType}`} />
             <button onClick={() => navigate('/account/create')}>Create Account</button>
             {showAccounts ? 
             <Table headers={headers} rows={accounts} />
             : ''}
-            {/* {createAccount ? <CreateAccount /> : ''} */}
-
 
         </section>
     )

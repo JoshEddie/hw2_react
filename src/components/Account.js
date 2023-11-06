@@ -1,19 +1,61 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, Outlet } from "react-router-dom";
+import Axios from 'axios'
+
+import Row from './Row'
+import Table from './Table'
+import { formatPhone } from './generalScripts'
+import AccountLines from "./AccountLines";
+
+import '../css/account.css';
 
 export default function Account() {
 
     const navigate = useNavigate();
-    let { acountNumber } = useParams();
+    let { accountNumber } = useParams();
+
+    const[accountDetails, setAccountDetails] = useState([]);
+
+    function getAccountDetails() {
+
+        fetch(`http://localhost:3002/api/accountDetails/${accountNumber}`)
+            .then(response => {
+                return response.json();
+            })
+            .then(data => {
+                setAccountDetails([...data])
+            });
+
+    }
+
+    useEffect (() => {
+        getAccountDetails();
+    }, []);
+
+    var accountDetailsHeaders = ['Plan Type', 'Street', 'City', 'State', 'Zip Code']
 
     return (
-        <main>
             <section class="infoSection">
 
-                    <h3>Account: {acountNumber}</h3>
-                    <button onClick={() => navigate('/')}>Sign Out</button>
+                    <h3>Account: {accountNumber}</h3>
+                    <Table 
+                        headers={accountDetailsHeaders} 
+                        rows={
+                            [<Row type={'cell'} 
+                                items = {accountDetails} />
+                            ]} 
+                        classes={'accountDetails'}/>
+                    <nav id="accountNav">
+                        <button onClick={() => navigate('')}>Billing</button>
+                        <button onClick={() => navigate('lines')}>Lines</button>
+                        <button onClick={() => navigate('calls')}>Calls</button>
+                        <button onClick={() => navigate('datause')}>Data Use</button>
+                        <button onClick={() => navigate('editinfo')}>Edit Info</button>
+                        <button onClick={() => navigate('/')}>Sign Out</button>
+                    </nav>
+                    <Outlet />
 
             </section>
-        </main>
     )
     
 }

@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from 'react-router-dom'
 
 import '../css/createAccount.css'
 import Axios from 'axios'
 
 export default function CreateAccount() {
+
+    const navigate = useNavigate();
 
     const [firstName, setFirstName] = useState("")
     const [lastName, setLastName] = useState("")
@@ -14,8 +17,9 @@ export default function CreateAccount() {
     const [state, setState] = useState("AL")
     const [zipCode, setZipCode] = useState("")
     const [dob, setDOB] = useState("")
-    const [planType, setPlanType] = useState("Unlimited")
-    const [numberOfLines, setNumberOfLines] = useState(1)
+    const [phoneModel, setPhoneModel] = useState("")
+    const [planType, setPlanType] = useState("Internet Lover")
+    const [planRates, setPlanRates] = useState([0, 0])
 
     function parseDate(date) {
         var values = date.split('-')
@@ -36,14 +40,31 @@ export default function CreateAccount() {
             dob: dob
         })
         .then((response) => {
-            console.log(response);
+            // console.log(response);
         });
         console.log("Account Created")
 
     }
 
+    function getPlanRates() {
+
+        fetch(`http://localhost:3002/api/planRates/${planType}`)
+            .then(response => {
+                return response.json();
+            })
+            .then(data => {
+                setPlanRates(data)
+            });
+
+    }
+
+    useEffect(() => {
+        getPlanRates();
+    }, [planType]);
+
     return (
     <div className="infoSection">
+        <h3>Create Account</h3>
         <p className="warning">WARNING: Please do not input sensitive date as this form is for test only and is not secure.</p>
         <div className="form">
             <label>Full Name:</label>
@@ -118,15 +139,27 @@ export default function CreateAccount() {
             <input id="ssnInput" type="text" placeholder="SSN" maxlength="9" onChange={(e) => setAccountSSN(e.target.value)} />
             </div>
 
-            <label id="autoPayment">Automatic Payment:</label>
-            <input type="checkbox" onChange={(e) => setAutoPayment(e.target.checked)} />
+            <div id="paymentColumn" className="column">
+                <label id="autoPayment">Payment:</label>
+                <select id="autoPaymentSelect" onChange={(e) => setAutoPayment(e.target.value)}>
+                    <option value="true">Auto Withdraw</option>
+                    <option value="false">Manual</option>
+                </select>
+            </div>
+
+            <div id="planTypeColumn" className="column">
+                <label id="planType">Plan Type:</label>
+                <select id="planTypeSelect" onChange={(e) => setPlanType(e.target.value)}>
+                    <option value="Internet Lover">Internet Lover</option>
+                    <option value="Talker">Talker</option>
+                    <option value="Want it All">Want it All</option>
+                    <option value="Pre-Paid">Pre-Paid</option>
+                </select>
+                <div className="rates">{planRates[0]} per Minute, {planRates[1]} per GB</div>
+            </div>
             
-            <label id="planType">Plan Type:</label>
-            <input type="radio" name="planType" defaultChecked value="unlimited" onChange={(e) => setPlanType(e.target.value)} />
-            <label>Unlimited</label>
-            <input type="radio" name="planType" value="pre_paid" onChange={(e) => setPlanType(e.target.value)}/>
-            <label>Pre Paid</label>
             <button onClick={() => createAccount()}>Create Account</button>
+            <button onClick={() => navigate('/')}>Cancel</button>
         </div>
     </div>
     )

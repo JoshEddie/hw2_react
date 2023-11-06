@@ -22,6 +22,16 @@
     margin-bottom: 10px;
 }
 
+.form select {
+    padding: 7px;
+    background-color: #ffffff;
+    font-size: 18px;
+    line-height: 18px;
+    border: none;
+    outline: none;
+    border-radius: 10px;
+}
+
 .form input[type=text]:focus {
     border: none;
     outline: none;
@@ -81,6 +91,7 @@
 
 .column {
     display: inline-block;
+    margin-right: 10px;
 }
 
 #ssnColumn {
@@ -89,4 +100,9 @@
 
 #ssnInput {
     width: calc(100% - 14px);
+}
+
+.rates {
+    display: inline-block;
+    margin: auto 5px;
 }

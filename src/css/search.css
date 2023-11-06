@@ -4,7 +4,12 @@
     width: 50%;
     background-color: #ffffff;
     border-radius: 20px;
-    padding: 7px 15px;
+    border: 2px solid #ffffff;
+    padding: 6px 15px;
+}
+
+#searchBarContainer:focus-within {
+    border-color: #ffaa00;
 }
 
 #search-icon {
@@ -13,7 +18,7 @@
 }
 
 #searchBarContainer input {
-    width: calc(100% - 27px);
+    width: calc(100% - 132px);
     font-size: 18px;
     padding-left: 7px;
     border: none;
@@ -23,4 +28,10 @@
     border: none;
     outline: none;
     color:#1a2c62;
+}
+
+#searchBarContainer select {
+    background-color: transparent;
+    width: 105px;
+    height: 21.5px;
 }

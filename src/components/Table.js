@@ -1,15 +1,17 @@
 import Row from './Row'
 
-export default function Table({headers, rows}) {
+export default function Table({headers, rows, classes}) {
+
+    // console.log(rows)
 
     return (
-        <div id="tableWrapper">
+        <div id="tableWrapper" className={classes}>
             <table class="tableList">
                     <thead>
                         <Row type={'header'} items = {headers} />
                     </thead>
                     <tbody>
-                        {rows.length > 0 ? rows : <p>No results, please try a different search</p>}
+                        {rows.length > 0 ? rows : <p>No results</p>}
                     </tbody>
             </table>
         </div>

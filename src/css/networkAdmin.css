@@ -1,0 +1,26 @@
+#viewTables {
+    background-color:#1a2c62;
+    border-radius: 12px;
+    margin: 10px 0;
+}
+
+#viewTables button {
+    display: inline-block;
+    width: calc(100% / 4);
+    border-radius: 0;
+    margin: 0;
+    background-color: transparent;
+}
+
+#viewTables:hover {
+    background-color: transparent;
+}
+
+#viewTables:hover button {
+    color:#1a2c62;
+}
+
+#viewTables button:hover {
+    background-color:#ffaa00;
+    border-radius: 12px;
+}
