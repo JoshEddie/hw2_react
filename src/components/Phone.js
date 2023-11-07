@@ -2,7 +2,7 @@ export default function Phone() {
 
     return (
         <>
-        <section id="phoneCall" class="infoSection phone" style="display: none;">
+        <section id="phoneCall" className="infoSection phone" style="display: none;">
         
             <h3>Phone:</h3>
             <h4 id="dial"></h4>
@@ -19,7 +19,7 @@ export default function Phone() {
                 <li onclick="dial('9')">9</li>
                 <li onclick="dial('')">*</li>
                 <li onclick="dial('0')">0</li>
-                <li class="backspace" onclick="dial()">x</li>
+                <li className="backspace" onclick="dial()">x</li>
             </ul>
 
             <button onclick="call()">Call</button>

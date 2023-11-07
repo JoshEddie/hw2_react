@@ -46,7 +46,7 @@ export default function Main() {
         <main>
             <button id="switchtoAdmin" onClick={() => navigate('/admin')}>Network Admin</button>
             <h1>Database HW2</h1>
-            <h2><span class="greenText">Team Seven</span> Cell Phones</h2>
+            <h2><span className="greenText">Team Seven</span> Cell Phones</h2>
             <Outlet />
         </main>
     )

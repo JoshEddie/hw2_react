@@ -35,7 +35,7 @@ export default function Account() {
     var accountDetailsHeaders = ['Plan Type', 'Street', 'City', 'State', 'Zip Code']
 
     return (
-            <section class="infoSection">
+            <section className="infoSection">
 
                     <h3>Account: {accountNumber}</h3>
                     <Table 

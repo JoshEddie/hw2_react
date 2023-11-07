@@ -15,8 +15,8 @@
     width: calc(100% - 14px);
     font-size: 18px;
     line-height: 18px;
-    padding: 7px;
-    border: none;
+    padding: 5px;
+    border: 2px solid #ffffff;
     background-color: #ffffff;
     border-radius: 10px;
     margin-bottom: 10px;
@@ -30,12 +30,6 @@
     border: none;
     outline: none;
     border-radius: 10px;
-}
-
-.form input[type=text]:focus {
-    border: none;
-    outline: none;
-    color:#1a2c62;
 }
 
 #firstNameInput {
@@ -79,14 +73,14 @@
 }
 
 #birthdayInput {
-    padding: 7px;
+    padding: 5px;
     background-color: #ffffff;
     font-size: 18px;
     line-height: 18px;
-    border: none;
     outline: none;
     border-radius: 10px;
     width: 150px;
+    border: 2px solid #ffffff;
 }
 
 .column {
@@ -105,4 +99,16 @@
 .rates {
     display: inline-block;
     margin: auto 5px;
+}
+
+#birthdayInput:placeholder-shown,
+.form input.empty:placeholder-shown {
+    border-color: #e11515;
+}
+
+#birthdayInput:focus,
+.form input:focus {
+    border-color: #ffaa00 !important;
+    outline: none;
+    color:#1a2c62;
 }

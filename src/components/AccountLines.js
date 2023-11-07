@@ -29,7 +29,6 @@ export default function AccountLines() {
     var lines = []
     for (var i = 0; i < accountLines.length; i++) {
         accountLines[i][0] = formatPhone(accountLines[i][0]);
-        console.log(accountLines[i][3])
         accountLines[i][3] = accountLines[i][3];
         lines.push(<Row type={'cell'} items = {accountLines[i]} />);
     }

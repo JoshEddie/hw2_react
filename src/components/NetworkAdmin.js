@@ -75,6 +75,7 @@ export default function NetworkAdmin() {
                 setDatabaseIntialized(true)
                 getTable('account');
                 setIntialzing(false)
+                setIntialzingStatus('')
                 return;
             }
             else {
@@ -98,7 +99,7 @@ export default function NetworkAdmin() {
     return (
         <>
         <button id="switchtoAdmin" onClick={() => navigate('/')}>Account Search</button>
-        <section className="infoSection">
+        <section className="infoSection" id="NetworkInfo">
         <h3>Network Admin</h3>
         {intializing ? 
             <>
@@ -107,6 +108,7 @@ export default function NetworkAdmin() {
             </>
             : 
             <>
+            <button onClick={() => intializeDatabase()}>Intialize Database</button>
             {databaseIntialized ? 
                 <>
                 <nav id="viewTables">
@@ -122,7 +124,7 @@ export default function NetworkAdmin() {
                 <Table headers={rowHeaders} rows={rowObjects}/>
                 </>
                 :
-                <button onClick={() => intializeDatabase()}>Intialize Database</button>
+                ''
             }
             </>
         }

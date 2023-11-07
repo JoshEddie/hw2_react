@@ -6,7 +6,7 @@ export default function Table({headers, rows, classes}) {
 
     return (
         <div id="tableWrapper" className={classes}>
-            <table class="tableList">
+            <table className="tableList">
                     <thead>
                         <Row type={'header'} items = {headers} />
                     </thead>

@@ -40,7 +40,7 @@ export default function AccountSearch() {
     const [searchInput, setSearchInput] = useState("")
     const [accountList, setAccountList] = useState(false);
     const [showAccounts, setShowAccounts] = useState(false)
-    const [searchType, setSearchType] = useState("Phone Number")
+    const [searchType, setSearchType] = useState("First Name")
 
     function checkifAccountsExist() {
 
@@ -88,7 +88,7 @@ export default function AccountSearch() {
     var headers = ['Phone', 'First Name', 'Last Name', 'Account Number']
 
     return (
-        <section class="infoSection">
+        <section className="infoSection">
 
             <h3>Which Account do you need?</h3>
             <SearchBar searchInput={searchInput} searchType={setSearchType} getAccount={getAccount} defaultText={`Search by ${searchType}`} />

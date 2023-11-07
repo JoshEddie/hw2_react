@@ -60,3 +60,13 @@ main h3 .positive {
 main h3 .negative {
     color: #bc270d;
 }
+
+#errorMessage {
+    text-align: center;
+    width: 100%;
+    background-color: #e11515;
+    color: #ffffff;
+    padding: 10px 0;
+    font-size: 18px;
+    margin-bottom: 10px;
+}

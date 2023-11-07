@@ -13,9 +13,9 @@ export default function SearchBar({searchInput, searchType, getAccount, defaultT
                 onChange={(e) => getAccount(e.target.value)}/>
             
             <select id="searchType" onChange={(e) => searchType(e.target.value)}>
-                <option value="Phone Number">Phone Number</option>
                 <option value="First Name">First Name</option>
                 <option value="Last Name">Last Name</option>
+                <option value="Phone Number">Phone Number</option>
             </select>
         </div>
         </>
