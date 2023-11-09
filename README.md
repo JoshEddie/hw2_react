@@ -1,8 +1,46 @@
-# Getting Started with Create React App
+Project stored at https://github.com/JoshEddie/hw2_react
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+# Getting Started 
 
-## Available Scripts
+1. Change creds.json to match your local database setup
+2. Run bash script.sh in project directory
+3. Click initialize database button
+4. Once database is initialized, you may view any tables in the database using the dropdown menu and view button
+5. Navigate to Account Search in top left to move to the main application
+
+# Features available in main app
+
+1. Create Account
+2. Search for account via first name, last name, or phone number
+3. Viewing balance/making payment
+4. Lines associated with account
+5. Sign out to go back to account search
+
+
+# Running Sever & Application
+
+In the project directory, run:
+
+### `bash script.sh`
+
+Installs all necessary dependencies
+Runs the server at [http://localhost:3002](http://localhost:3002)\
+Runs the app in the development mode.\
+Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+
+### Alternatively 
+Start server with below command and open build/index.html in browser
+
+# Running Server
+
+In the project directory, you can run:
+
+### `node server.js`
+Runs the server.\
+Open [http://localhost:3002](http://localhost:3002) to view it in your browser.
+
+
+# Available React Scripts
 
 In the project directory, you can run:
 

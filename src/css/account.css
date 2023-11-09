@@ -70,3 +70,7 @@ main h3 .negative {
     font-size: 18px;
     margin-bottom: 10px;
 }
+
+#paymentsTable #tableWrapper {
+    height: calc(100vh - 552px);
+}

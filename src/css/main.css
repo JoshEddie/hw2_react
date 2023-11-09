@@ -71,16 +71,6 @@ main h4 {
     margin-top: 10px;
 }
 
-.darkBackground {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    background-color: rgba(26, 44, 98, 0.8);
-    z-index: 5;
-}
-
 .infoSection {
     width: calc(100% - 40px);
     position: absolute;

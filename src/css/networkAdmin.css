@@ -1,28 +1,64 @@
-#viewTables {
+#tableSelectInput {
+    border: none;
+    outline: none;
+    padding-left: 14px;
+    font-size: 18px;
+    background-color: #ffffff;
+    border-radius: 12px 0 0 12px;
+    width: 160px;
+    height: 40px;
+}
+
+#viewTables,
+#intializeDropDatabase {
     background-color:#1a2c62;
     border-radius: 12px;
     margin: 10px 0;
 }
 
-#viewTables button {
+#viewTables {
+    width: calc(100% - 174px);
+    border-radius: 0 12px 12px 0;
     display: inline-block;
-    width: calc(100% / 4);
+}
+
+#intializeDropDatabase {
+    width: 50%;
+    margin: 0 auto;
+    text-align: center;
+}
+
+#viewTables button,
+#intializeDropDatabase button {
+    display: inline-block;
     border-radius: 0;
     margin: 0;
     background-color: transparent;
+    font-size: 18px;
+    line-height: 40pxpx;
 }
 
-#viewTables:hover {
-    background-color: transparent;
+#viewTables button {
+    width: calc(100% / 2);
+    height: 40px;
 }
 
-#viewTables:hover button {
-    color:#1a2c62;
+#intializeDropDatabase button {
+    width: calc(100% / 2);
 }
 
-#viewTables button:hover {
+#viewTables button:hover,
+#intializeDropDatabase button:hover {
     background-color:#ffaa00;
-    border-radius: 12px;
+}
+
+#intializeDropDatabase button:nth-child(1):hover {
+    border-radius: 12px 0 0 12px;
+}
+
+#intializeDropDatabase button:nth-child(2):hover,
+#viewTables button:nth-child(2):hover {
+    border-radius: 0 12px 12px 0;
 }
 
 h5 {

@@ -8,6 +8,7 @@ import '../css/search.css'
 
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Axios from 'axios'
 
 var customer = [
     //[first name], [last name], [phone number (pk)]
@@ -44,18 +45,30 @@ export default function AccountSearch() {
 
     function checkifAccountsExist() {
 
-        fetch(`http://localhost:3002/api/get/account`)
+        Axios.get(`http://localhost:3002/api/getTable`, {
+            params: {
+                table: "account",
+                order: " ORDER BY account_ssn"
+            }
+        })
         .then(response => {
-            return response.json();
+            return response.data;
         })
         .then(data => {
+            
             if(data.name == "error") {
-                console.log("No accounts exist, please intialize datbase")
+                console.log("Error")
                 navigate('/admin')
                 return;
             }
+            else if(data.name == "No results") {
+                console.log("No results")
+                navigate('/admin')
+                return;
+            }
+
         })
-        return;
+        
     }
 
     function getAccount(input) {
