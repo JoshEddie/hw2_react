@@ -6,12 +6,13 @@ const app = express();
 const port = 3002;
 
 var fs = require("fs");
-// var transactions = fs.createWriteStream("transactions.sql");
-// var queries = fs.createWriteStream("query.sql");
-// transactions = fs.createWriteStream("transactions.sql", {flags:'a'});
-// queries = fs.createWriteStream("query.sql", {flags:'a'});
+var transactionSQL = fs.createWriteStream("transactions.sql");
+var querySQL = fs.createWriteStream("query.sql");
+transactionSQL = fs.createWriteStream("transactions.sql", {flags:'a'});
+querySQL = fs.createWriteStream("query.sql", {flags:'a'});
 
 const creds = require('./creds.json');
+const { queries } = require('@testing-library/react');
 const pool = new Pool(creds);
 
 app.use(express.json())
@@ -189,7 +190,6 @@ async function chargeBalance(cost, ssn) {
         try {
 
             await pool.query('BEGIN');
-            // transactions.write('BEGIN\n\n')
 
             const updateBalance = await pool.query(`
                 UPDATE account
@@ -198,11 +198,6 @@ async function chargeBalance(cost, ssn) {
                 RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
             `)
 
-            // transactions.write(`UPDATE account\n`)
-            // transactions.write(`SET balance_cents = balance_cents + ${cost}\n`)
-            // transactions.write(`WHERE account_ssn = '${ssn}'\n`)
-            // transactions.write(`RETURNING (balance_cents / 100.00)::MONEY as balancedollar;\n\n`)
-
             const updateBankBalance = await pool.query(`
                 UPDATE bank_account
                 SET balance_cents = balance_cents - ${cost}
@@ -210,13 +205,7 @@ async function chargeBalance(cost, ssn) {
                 RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
             `)
 
-            // transactions.write(`UPDATE bank_account\n`)
-            // transactions.write(`SET balance_cents = balance_cents - ${cost}\n`)
-            // transactions.write(`WHERE account_ssn = '${ssn}'\n`)
-            // transactions.write(`RETURNING (balance_cents / 100.00)::MONEY as balancedollar;\n\n`)
-
             await pool.query('COMMIT');
-            // transactions.write('COMMIT\n\n')
 
             return [updateBalance.rows[0].balancedollar, updateBankBalance.rows[0].balancedollar]; // Success, exit the loop
         } catch (err) {
@@ -650,6 +639,8 @@ app.get("/api/getTable", async(req, res) => {
         const order = req.query.order;
 
         const result = await pool.query(`SELECT * FROM ${table}${order} LIMIT 4000;`);
+        querySQL.write(`SELECT * FROM ${table}${order}\n`);
+        querySQL.write(`LIMIT 4000;\n\n`);
         
         if (result.rows.length < 1) {
             res.send({name: "No results"})
@@ -668,7 +659,8 @@ app.get("/api/delete/:table", async(req, res) => {
 
     try {
         const table = req.params.table;
-        await pool.query(`DELETE FROM ${table}`);
+        await pool.query(`DELETE FROM ${table};`);
+        querySQL.write(`DELETE FROM ${table};\n\n`);
         res.send("table deleted")
     }
     catch (err) {
@@ -681,7 +673,8 @@ app.get("/api/drop/:table", async(req, res) => {
 
     try {
         const table = req.params.table;
-        await pool.query(`DROP TABLE ${table}`);
+        await pool.query(`DROP TABLE ${table};`);
+        querySQL.write(`DROP TABLE ${table};\n\n`);
         res.send("table dropped")
     }
     catch (err) {
@@ -708,38 +701,60 @@ app.post("/api/createAccount", async (req,res) => {
 
         const phoneModel = req.body.phoneModel;
 
-        await pool.query(`BEGIN;`);
-
-        await pool.query(`
-            INSERT into account VALUES
-            ('${accountSSN}', '${planType}', '${autoPayment}', '${streetAddress}', '${city}', '${state}', '${zipCode}');
-        `)
-
-        await pool.query(`
-            INSERT into customer VALUES
-            ('${firstName}', '${lastName}', '${accountSSN}', '${dob}', '${accountSSN}');
-        `)
-
         var phone_number = generateNumber(10)
 
         await pool.query(`
+
+            BEGIN;
+
+            INSERT into account VALUES
+                ('${accountSSN}', '${planType}', '${autoPayment}', '${streetAddress}', '${city}', '${state}', '${zipCode}', 8000);
+
+            INSERT INTO bank_account VALUES
+                ('${accountSSN}', ${Number(generateNumber(5)) + 10000});
+
+            INSERT into customer VALUES
+                ('${firstName}', '${lastName}', '${accountSSN}', '${dob}', '${accountSSN}');
+
             INSERT into phone_number VALUES
-            ('${phone_number}', '${accountSSN}');
-        `)
+                ('${phone_number}', '${accountSSN}');
 
-        await pool.query(`
             INSERT into phone_model VALUES
-            ('${phone_number}', '${phoneModel}');
+                ('${phone_number}', '${phoneModel}');
+
+            INSERT INTO payment (payment_date, amount_cents, account_holder_ssn)
+                VALUES (NOW(), -8000, '${accountSSN}');
+
+            COMMIT;
+
+            END;
+
         `)
+        .then(function (result) {
 
-        await pool.query(`COMMIT;`);
-        await pool.query(`END;`);
+            transactionSQL.write(`BEGIN;\n\n`);
+            transactionSQL.write(`INSERT into account VALUES\n`);
+            transactionSQL.write(`\t('${accountSSN}', '${planType}', '${autoPayment}', '${streetAddress}', '${city}', '${state}', '${zipCode}', 8000);\n\n`);
+            transactionSQL.write(`INSERT INTO bank_account VALUES\n`);
+            transactionSQL.write(`\t('${accountSSN}', ${Number(generateNumber(5)) + 10000});\n\n`);
+            transactionSQL.write(`INSERT into customer VALUES\n`);
+            transactionSQL.write(`\t('${firstName}', '${lastName}', '${accountSSN}', '${dob}', '${accountSSN}');\n\n`);
+            transactionSQL.write(`INSERT into phone_number VALUES\n`);
+            transactionSQL.write(`\t('${phone_number}', '${accountSSN}');\n\n`);
+            transactionSQL.write(`INSERT into phone_model VALUES\n`);
+            transactionSQL.write(`\t('${phone_number}', '${phoneModel}');\n\n`);
+            transactionSQL.write(`INSERT INTO payment (payment_date, amount_cents, account_holder_ssn)\n`);
+            transactionSQL.write(`\tVALUES (NOW(), -8000, '${accountSSN}');\n\n`);
+            transactionSQL.write(`COMMIT;\n\n`);
+            transactionSQL.write(`END;\n\n`);
 
-        res.send('')
+            res.send('Account Created')
+
+        });
 
     } catch (err) {
         await pool.query('ROLLBACK');
-        console.log("Error 8: " + err.code)
+        console.log("Error 8: " + err)
         res.send(err.code)
         return;
     }
@@ -751,12 +766,21 @@ app.get("/api/planRates/:plan", async (req,res) => {
     try {
         const plan = req.params.plan;
         console.log(plan)
-        const result = await pool.query(`
-            SELECT (call_price_cents / 100.00)::MONEY as callprice, (data_price_cents / 100.00)::MONEY as dataprice FROM plan
+
+        await pool.query(`
+            SELECT (call_price_cents / 100.00)::MONEY as callprice, (data_price_cents / 100.00)::MONEY as dataprice 
+            FROM plan
             WHERE plan_name = '${plan}';
-        `);
-        console.log([result.rows[0].callprice, result.rows[0].dataprice]);
-        res.send([result.rows[0].callprice, result.rows[0].dataprice]);
+        `)
+        .then(function (result) {
+
+            querySQL.write(`SELECT (call_price_cents / 100.00)::MONEY as callprice, (data_price_cents / 100.00)::MONEY as dataprice\n`);
+            querySQL.write(`FROM plan\n`);
+            querySQL.write(`WHERE plan_name = '${plan}';\n\n`);
+        
+            res.send([result.rows[0].callprice, result.rows[0].dataprice]);
+
+        });
 
     } catch (err) {
         console.log("Error: " + err.message)
@@ -768,9 +792,12 @@ app.get("/api/planRates/:plan", async (req,res) => {
 app.get("/api/accounts/:type&:input", async (req,res) => {
 
     try {
+
         const type = req.params.type
         const input = req.params.input;
+
         console.log("Search for input: " + input)
+        
         var searchColumn = '';
         if(type == "Phone Number") {
             searchColumn = 'number';
@@ -781,27 +808,33 @@ app.get("/api/accounts/:type&:input", async (req,res) => {
         else if(type == "Last Name") {
             searchColumn = 'last_name';
         }
+
         const result = await pool.query(`
             SELECT number, first_name, last_name, account_holder_ssn FROM customer
             JOIN phone_number ON customer.ssn = phone_number.user_ssn
-            WHERE UPPER(${searchColumn}) LIKE UPPER('${input}%')
-        `, []);
-        // queries.write(`SELECT number, first_name, last_name, account_holder_ssn FROM customer\n`)
-        // queries.write(`JOIN phone_number ON customer.ssn = phone_number.user_ssn\n`)
-        // queries.write(`WHERE UPPER(${searchColumn}) LIKE UPPER('${input}%');\n\n`)
+            WHERE UPPER(${searchColumn}) LIKE UPPER('${input}%');
+        `, [])
+        .then(function (result) {
 
-        var accounts = []
+            querySQL.write(`SELECT number, first_name, last_name, account_holder_ssn FROM customer\n`);
+            querySQL.write(`JOIN phone_number ON customer.ssn = phone_number.user_ssn\n`);
+            querySQL.write(`WHERE UPPER(${searchColumn}) LIKE UPPER('${input}%');\n\n`);
 
-        for(var i = 0; i < result.rows.length; i++) {
-            accounts.push([
-                result.rows[i].number,
-                result.rows[i].first_name,
-                result.rows[i].last_name,
-                result.rows[i].account_holder_ssn
-            ])
-        }
-        console.log("Accounts: " + result.rows.length)
-        res.send(accounts);
+            var accounts = []
+
+            for(var i = 0; i < result.rows.length; i++) {
+                accounts.push([
+                    result.rows[i].number,
+                    result.rows[i].first_name,
+                    result.rows[i].last_name,
+                    result.rows[i].account_holder_ssn
+                ])
+            }
+
+            console.log("Accounts: " + result.rows.length)
+            res.send(accounts);
+
+        });
 
     } catch (err) {
         console.log("Error: " + err.message)
@@ -816,49 +849,30 @@ app.get("/api/accountDetails/:accountSSN", async (req, res) => {
         const ssn = req.params.accountSSN;
         console.log(ssn)
 
-        const account = await pool.query(`
+        await pool.query(`
             SELECT account.account_ssn, first_name, last_name, street_address, city, st, zip_code, plan_type, balance_cents FROM account
             JOIN customer ON customer.ssn = account.account_ssn
-            WHERE account.account_ssn = '${ssn}'
-        `, []);
+            WHERE account.account_ssn = '${ssn}';
+        `, [])
+        .then(function (result) {
 
-        // const call = await pool.query(`
-        //     SELECT SUM(call_length_mins * call_price_cents / 100.00)::MONEY as call_cost FROM account
-        //     JOIN plan ON plan_type = plan_name
-        //     JOIN customer ON customer.account_holder_ssn = account.account_ssn
-        //     JOIN phone_number ON customer.ssn = phone_number.user_ssn
-        //     JOIN call ON phone_number.number = call.call_from OR phone_number.number = call.call_to
-        //     WHERE account.account_ssn = '${ssn}'     
-        // `, []);
+            querySQL.write(`SELECT account.account_ssn, first_name, last_name, street_address, city, st, zip_code, plan_type, balance_cents FROM account\n`);
+            querySQL.write(`JOIN customer ON customer.ssn = account.account_ssn\n`);
+            querySQL.write(`WHERE account.account_ssn = '${ssn}';\n\n`);
 
-        // const data = await pool.query(`
-        //     SELECT SUM(mb_used * data_price_cents / 100.00)::MONEY as data_cost FROM account
-        //     JOIN plan ON plan_type = plan_name
-        //     JOIN customer ON customer.account_holder_ssn = account.account_ssn
-        //     JOIN phone_number ON customer.ssn = phone_number.user_ssn
-        //     JOIN data ON phone_number.number = data.phone_number
-        //     WHERE account.account_ssn = '${ssn}'
-        // `, []);
+            var row = []
 
-        // const payment = await pool.query(`
-        //     SELECT sum(amount) as amount_paid FROM payment
-        //     JOIN account ON payment.account_holder_ssn = account.account_ssn
-        //     WHERE account.account_ssn = '${ssn}'
-        // `, []);
+            row.push(
+                result.rows[0].plan_type,
+                result.rows[0].street_address,
+                result.rows[0].city,
+                result.rows[0].st,
+                result.rows[0].zip_code
+            )
 
-        var row = []
+            res.send(row);
 
-        // var balance = Number(payment.rows[0].amount_paid) - (Number(call.rows[0].call_cost) + Number(data.rows[0].data_cost));
-
-        row.push(
-            account.rows[0].plan_type,
-            account.rows[0].street_address,
-            account.rows[0].city,
-            account.rows[0].st,
-            account.rows[0].zip_code
-        )
-
-        res.send(row);
+        });
 
     } catch (err) {
         console.log("Error: " + err.message)
@@ -874,13 +888,19 @@ app.get("/api/accountBill", async (req, res) => {
         const ssn = req.query.accountNumber;
         const tableName = req.query.tableName;
 
-        const result = await pool.query(`
+        await pool.query(`
             SELECT (balance_cents / 100.00)::MONEY as balancedollars FROM ${tableName}
             WHERE account_ssn = '${ssn}';
         `)
+        .then(function (result) {
 
-        console.log("Account Bill: " + result.rows[0].balancedollars)
-        res.send(result.rows[0].balancedollars);
+            querySQL.write(`SELECT (balance_cents / 100.00)::MONEY as balancedollars FROM ${tableName}\n`);
+            querySQL.write(`WHERE account_ssn = '${ssn}';\n\n`);
+
+            console.log("Account Bill: " + result.rows[0].balancedollars)
+            res.send(result.rows[0].balancedollars);
+
+        })
 
     } catch (err) {
         console.log("Error: " + err.message)
@@ -891,10 +911,11 @@ app.get("/api/accountBill", async (req, res) => {
 app.get("/api/accountLines/:accountSSN", async (req, res) => {
 
     try {
+
         const ssn = req.params.accountSSN;
         console.log("Account Lines: " + ssn)
 
-        const result = await pool.query(`
+        await pool.query(`
             WITH calls AS (
                 SELECT number, first_name, last_name, TO_CHAR(SUM(COALESCE(call_length_mins, 0)), 'fm999G999') as minutes
                 FROM customer
@@ -912,22 +933,43 @@ app.get("/api/accountLines/:accountSSN", async (req, res) => {
             FROM calls
             LEFT JOIN dataUsed ON calls.number = dataUsed.phone_number
             JOIN phone_model ON calls.number = phone_model.phone_number;
-        `, []);
+        `, [])
+        .then(function (result) {
 
-        var lines = []
+            querySQL.write(`WITH calls AS (\n`);
+            querySQL.write(`\tSELECT number, first_name, last_name, TO_CHAR(SUM(COALESCE(call_length_mins, 0)), 'fm999G999') as minutes\n`);
+            querySQL.write(`\tFROM customer\n`);
+            querySQL.write(`\tJOIN phone_number ON customer.ssn = phone_number.user_ssn\n`);
+            querySQL.write(`\tLEFT JOIN call ON phone_number.number = call.call_from OR phone_number.number = call.call_to\n`);
+            querySQL.write(`\tWHERE account_holder_ssn = '${ssn}'\n`);
+            querySQL.write(`\tGROUP BY number, first_name, last_name\n`);
+            querySQL.write(`),\n`);
+            querySQL.write(`dataUsed AS (\n`);
+            querySQL.write(`\tSELECT phone_number, TO_CHAR(SUM(mb_used), 'fm999G999') as data_used\n`);
+            querySQL.write(`\tFROM data\n`);
+            querySQL.write(`\tGROUP BY phone_number\n`);
+            querySQL.write(`)\n`);
+            querySQL.write(`SELECT number, model, first_name, last_name, minutes, COALESCE(data_used, '0') as data_used\n`);
+            querySQL.write(`FROM calls\n`);
+            querySQL.write(`LEFT JOIN dataUsed ON calls.number = dataUsed.phone_number\n`);
+            querySQL.write(`JOIN phone_model ON calls.number = phone_model.phone_number;\n\n`);
 
-        for(var i = 0; i < result.rows.length; i++) {
-            lines.push([
-                result.rows[i].number,
-                result.rows[i].model,
-                result.rows[i].first_name,
-                result.rows[i].last_name,
-                result.rows[i].minutes,
-                result.rows[i].data_used
-            ])
-        }
-        console.log("Lines: " + result.rows.length)
-        res.send(lines);
+            var lines = []
+
+            for(var i = 0; i < result.rows.length; i++) {
+                lines.push([
+                    result.rows[i].number,
+                    result.rows[i].model,
+                    result.rows[i].first_name,
+                    result.rows[i].last_name,
+                    result.rows[i].minutes,
+                    result.rows[i].data_used
+                ])
+            }
+            console.log("Lines: " + result.rows.length)
+            res.send(lines);
+
+        });
 
     } catch (err) {
         console.log("Error: " + err.message)
@@ -951,20 +993,48 @@ app.post("/api/makePayment", async (req,res) => {
         let month = date.getMonth() + 1;
         let year = date.getFullYear();
 
-        await pool.query(`BEGIN`);
+        await pool.query(`
+            BEGIN;
 
-        await payment(`${year}-${month}-${day}`, paymentAmount, accountSSN);
-        const balance = chargeBalance(paymentAmount, accountSSN)
+            INSERT INTO payment (payment_date, amount_cents, account_holder_ssn)
+                VALUES (DATE '${year}-${month}-${day}', ${paymentAmount}, '${accountSSN}');
+
+            UPDATE account
+                SET balance_cents = balance_cents + ${paymentAmount}
+                WHERE account_ssn = '${accountSSN}'
+                RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
+
+            UPDATE bank_account
+                SET balance_cents = balance_cents - ${paymentAmount}
+                WHERE account_ssn = '${accountSSN}'
+                RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
+
+            COMMIT;
+
+            END;
+
+        `)
         .then(function (result) {
-            console.log("Balance result: " + result)
-            res.send(result)
-            return result;
-        })
 
-        await pool.query(`COMMIT`);
-        await pool.query(`END`);
+            transactionSQL.write(`BEGIN;\n\n`);
+            transactionSQL.write(`INSERT INTO payment (payment_date, amount_cents, account_holder_ssn)\n`);
+            transactionSQL.write(`\tVALUES (DATE '${year}-${month}-${day}', ${paymentAmount}, '${accountSSN}');\n\n`);
+            transactionSQL.write(`UPDATE account\n`);
+            transactionSQL.write(`\tSET balance_cents = balance_cents + ${paymentAmount}\n`);
+            transactionSQL.write(`\tWHERE account_ssn = '${accountSSN}'\n`);
+            transactionSQL.write(`\tRETURNING (balance_cents / 100.00)::MONEY as balancedollar;\n\n`);
+            transactionSQL.write(`UPDATE bank_account\n`);
+            transactionSQL.write(`\tSET balance_cents = balance_cents - ${paymentAmount}\n`);
+            transactionSQL.write(`\tWHERE account_ssn = '${accountSSN}'\n`);
+            transactionSQL.write(`\tRETURNING (balance_cents / 100.00)::MONEY as balancedollar;\n\n`);
+            transactionSQL.write(`COMMIT;\n\n`);
+            transactionSQL.write(`END;\n\n`);
 
-        return;
+            console.log("Balance result: " + result[2].rows[0].balancedollar)
+            res.send([result[2].rows[0].balancedollar, result[3].rows[0].balancedollar])
+            return;
+
+        });
 
     } catch (err) {
         console.log("Error on Making Payment: " + err.message)
@@ -980,14 +1050,21 @@ app.get("/api/getPayments", async(req,res) => {
 
         const ssn = req.query.accountSSN;
 
-        const results = await pool.query(`
+        await pool.query(`
             SELECT payment_date::DATE as Date, (amount_cents / 100.00)::MONEY as Payment 
             FROM payment 
-            where account_holder_ssn = '${ssn}'
+            WHERE account_holder_ssn = '${ssn}'
             ORDER BY Date DESC;
         `)
+        .then(function (result) {
 
-        res.send(results.rows)
+            querySQL.write(`SELECT payment_date::DATE as Date, (amount_cents / 100.00)::MONEY as Payment\n`);
+            querySQL.write(`FROM payment\n`);
+            querySQL.write(`WHERE account_holder_ssn = '${ssn}'\n`);
+            querySQL.write(`ORDER BY Date DESC;\n\n`);
+
+            res.send(result.rows)
+        });
 
     } catch (err) {
         return;

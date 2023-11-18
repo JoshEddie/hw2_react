@@ -47,7 +47,7 @@ export default function CreateAccount() {
         })
         .then(response => {
             console.log(response.data); 
-            if(response.data != '') {
+            if(response.data != 'Account Created') {
                 if(response.data == 23505) {
                     setErrorMessage(' - SSN already exists.')
                 }
