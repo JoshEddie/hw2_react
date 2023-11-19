@@ -24,6 +24,10 @@
     color: #e11515
 }
 
+#warningContainer p {
+    text-align: center;
+}
+
 #warningContainer button {
     width: calc(50% - 7px);
     font-size: 18px;

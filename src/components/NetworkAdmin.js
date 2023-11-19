@@ -29,7 +29,12 @@ export default function NetworkAdmin({ setTransactionTime }) {
 
     function warning(continueAction) {
 
-        setWarningComponent(<Warning cancelAction={setWarningComponent} continueAction={continueAction} tableSelect={''}/>)
+        setWarningComponent(<Warning 
+            warningHeader = "Warning"
+            warningText="Proceeding may cause the database to no longer function. Would you like to continue?"
+            cancelAction={setWarningComponent} 
+            continueAction={continueAction} 
+            tableSelect={''}/>)
 
     }
 

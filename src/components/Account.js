@@ -4,6 +4,7 @@ import Axios from 'axios'
 
 import Row from './Row'
 import Table from './Table'
+import Warning from "./Warning";
 
 import '../css/account.css';
 
@@ -11,6 +12,19 @@ export default function Account({accountDetails, setAccountDetails}) {
 
     const navigate = useNavigate();
     let { accountNumber } = useParams();
+
+    const[warningComponent, setWarningComponent] = useState('')
+
+    function warning() {
+
+        setWarningComponent(<Warning 
+            warningHeader= "Sign Out?"
+            warningText="Are you sure you want to sign out?"
+            cancelAction={setWarningComponent} 
+            continueAction={() => navigate('/')} 
+            tableSelect={''}/>)
+
+    }
 
     function getAccountDetails() {
 
@@ -31,6 +45,7 @@ export default function Account({accountDetails, setAccountDetails}) {
     var accountDetailsHeaders = ['Plan Type', 'Street', 'City', 'State', 'Zip Code']
 
     return (
+        <>
             <section className="infoSection">
 
                     <h3>Account: {accountNumber}</h3>
@@ -47,11 +62,13 @@ export default function Account({accountDetails, setAccountDetails}) {
                         <button onClick={() => navigate('calls')}>Calls</button>
                         <button onClick={() => navigate('datause')}>Data Use</button>
                         <button onClick={() => navigate('editinfo')}>Edit Info</button>
-                        <button onClick={() => navigate('/')}>Sign Out</button>
+                        <button onClick={() => warning()}>Sign Out</button>
                     </nav>
                     <Outlet />
 
             </section>
+            {warningComponent}
+            </>
     )
     
 }
