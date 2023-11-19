@@ -112,7 +112,7 @@ export default function CreateAccount({ setTransactionTime }) {
             <select id="stateInput" onChange={(e) => setState(e.target.value)}>
                 {state_options}
             </select>
-            <input id="zipCodeInput" className={emptyClass} type="text" placeholder="Zip Code" maxlength="5" onChange={(e) => setZipCode(e.target.value)} />
+            <input id="zipCodeInput" className={emptyClass} type="text" placeholder="Zip Code" maxLength="5" onChange={(e) => setZipCode(e.target.value)} />
             
             <div id="birthdayColumn" className="column">
             <label>Birthday:</label>
@@ -121,7 +121,7 @@ export default function CreateAccount({ setTransactionTime }) {
 
             <div id="ssnColumn" className="column">
             <label>SSN:</label>
-            <input id="ssnInput" className={emptyClass} type="text" placeholder="SSN" maxlength="9" onChange={(e) => setAccountSSN(e.target.value)} />
+            <input id="ssnInput" className={emptyClass} type="text" placeholder="SSN" maxLength="9" onChange={(e) => setAccountSSN(e.target.value)} />
             </div>
 
             <div id="paymentColumn" className="column">
@@ -150,9 +150,10 @@ export default function CreateAccount({ setTransactionTime }) {
                 <div className="rates">{planRates[0]} per Minute, {planRates[1]} per GB</div>
             </div>
             
-            
-            <button onClick={() => createAccount()}>Create Account</button>
-            <button onClick={() => navigate('/')}>Cancel</button>
+            <div id="editCreateAccount">
+                <button className="cancel" onClick={() => navigate('/')}>Cancel</button>
+                <button onClick={() => createAccount()}>Create Account</button>
+            </div>
         </div>
     </div>
     )

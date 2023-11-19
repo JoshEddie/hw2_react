@@ -3,10 +3,11 @@ import Table from './Table'
 import { formatPhone } from './generalScripts'
 
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 export default function AccountLines({ setTransactionTime }) {
 
+    const navigate = useNavigate();
     let { accountNumber } = useParams();
 
     var accountLinesHeaders = ['Phone Number', 'Phone Model', 'First Name', 'Last Name', 'Minutes Used', 'MB Used']
@@ -31,15 +32,17 @@ export default function AccountLines({ setTransactionTime }) {
 
     var lines = []
     for (var i = 0; i < accountLines.length; i++) {
+        const unformattedPhone = accountLines[i][0];
         accountLines[i][0] = formatPhone(accountLines[i][0]);
         accountLines[i][3] = accountLines[i][3];
-        lines.push(<Row type={'cell'} items = {accountLines[i]} />);
+        lines.push(<Row type={'cell'} items = {accountLines[i]} link = {`${unformattedPhone}`}/>);
     }
 
     return (
         <>
         <h4>Account Lines:</h4>
         <Table headers={accountLinesHeaders} rows={lines} classes={'accountLines'}/>
+        <button onClick={() => navigate(`0`)}>Add Line</button>
         </>
     )
 

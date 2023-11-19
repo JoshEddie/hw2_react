@@ -26,7 +26,12 @@ export default function DataUse({ setTransactionTime }) {
         .then(response => {
             var endTime = performance.now();
             setTransactionTime(endTime - startTime);
-            setDataUse(response.data);
+            if(response.data != "No results") {
+                setDataUse(response.data);
+            }
+            else {
+                setDataUse([])
+            }
         });
     }
 

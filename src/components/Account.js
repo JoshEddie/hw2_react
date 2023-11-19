@@ -7,12 +7,10 @@ import Table from './Table'
 
 import '../css/account.css';
 
-export default function Account() {
+export default function Account({accountDetails, setAccountDetails}) {
 
     const navigate = useNavigate();
     let { accountNumber } = useParams();
-
-    const[accountDetails, setAccountDetails] = useState([]);
 
     function getAccountDetails() {
 

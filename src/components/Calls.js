@@ -37,7 +37,12 @@ export default function Calls({ setTransactionTime }) {
         .then(response => {
             var endTime = performance.now();
             setTransactionTime(endTime - startTime);
-            setCalls(response.data);
+            if(response.data != "No results") {
+                setCalls(response.data);
+            }
+            else {
+                setCalls([])
+            }
         });
     }
 

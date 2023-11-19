@@ -886,11 +886,15 @@ app.get("/api/accounts/:type&:input", async (req,res) => {
         else if(type == "Last Name") {
             searchColumn = 'last_name';
         }
+        else if(type == "Account Number") {
+            console.log("Search by account:")
+            searchColumn = 'account_no';
+        }
 
         const result = await pool.query(`
             SELECT number, first_name, last_name, account_no FROM customer
             JOIN phone ON customer.ssn = phone.user_ssn
-            WHERE UPPER(${searchColumn}) LIKE UPPER('${input}%');
+            WHERE UPPER(${searchColumn}::varchar(255)) LIKE UPPER('${input}%');
         `, [])
         .then(function (result) {
 
@@ -959,6 +963,44 @@ app.get("/api/accountDetails/:accountNo", async (req, res) => {
 
 })
 
+app.post("/api/updateAccountDetails", async(req,res) => {
+
+    const accountNo = req.body.accountNo;
+    const planType = req.body.planType;
+    const streetAddress = req.body.streetAddress;
+    const city = req.body.city;
+    const state = req.body.state;
+    const zipCode = req.body.zipCode;
+
+    try {
+
+        await pool.query(`
+            BEGIN;
+
+            UPDATE phone_account
+                SET street_address = '${streetAddress}',
+                city = '${city}',
+                st = '${state}',
+                zip_code = '${zipCode}',
+                plan_type = '${planType}'
+                WHERE account_no = '${accountNo}';
+
+            COMMIT;
+
+            END;
+
+        `)
+
+        res.send("Account Updated")
+
+    } catch(err) {
+        console.log("account update failed: " + err)
+        await pool.query(`ROLLBACK;`)
+        res.send(err.code)
+    }
+
+});
+
 app.get("/api/accountBill", async (req, res) => {
 
     try {
@@ -991,6 +1033,137 @@ app.get("/api/accountBill", async (req, res) => {
     }
 
 });
+
+app.get("/api/getLineInfo", async(req,res) => {
+
+    const phoneNumber = req.query.phoneNumber;
+    console.log(phoneNumber)
+
+    try {
+
+        await pool.query(`
+            SELECT first_name, last_name, birthday, ssn, model
+            FROM customer
+            JOIN phone ON customer.ssn = phone.user_ssn
+            WHERE number = '${phoneNumber}'
+            GROUP BY first_name, last_name, birthday, ssn, model;
+        `)
+        .then(result => {
+
+            querySQL.write(`SELECT first_name, last_name, birthday, ssn, model\n`);
+            querySQL.write(`\tFROM customer\n`);
+            querySQL.write(`\tJOIN phone ON customer.ssn = phone.user_ssn\n`);
+            querySQL.write(`\tWHERE number = '${phoneNumber}'\n`);
+            querySQL.write(`\tGROUP BY first_name, last_name, birthday, ssn, model;\n\n`);
+
+            if(result.rows.length > 0) {
+                res.send(result.rows);
+            }
+            else {
+                res.send("No results")
+            }
+        })
+
+    } catch(err) {
+        console.log(err)
+    }
+
+});
+
+app.post("/api/updateLine", async(req,res) => {
+
+    const ssn = req.body.ssn;
+    const firstName = req.body.firstName;
+    const lastName = req.body.lastName;
+    const phoneModel = req.body.phoneModel;
+
+    try {
+
+        await pool.query(`
+            BEGIN;
+
+            UPDATE customer
+                SET first_name = '${firstName}',
+                last_name = '${lastName}'
+                WHERE ssn = '${ssn}';
+
+            UPDATE phone
+                SET model = '${phoneModel}'
+                WHERE user_ssn = '${ssn}';
+                
+            COMMIT;
+
+            END;
+        `)
+        .then(result => {
+
+            transactionSQL.write(`BEGIN;\n\n`)
+            transactionSQL.write(`UPDATE customer\n`)
+            transactionSQL.write(`\tSET first_name = '${firstName}',\n`)
+            transactionSQL.write(`\tlast_name = '${lastName}',\n`)
+            transactionSQL.write(`\tWHERE ssn = '${ssn}';\n\n`)
+            transactionSQL.write(`UPDATE phone\n`)
+            transactionSQL.write(`\tSET model = '${phoneModel}'\n`)
+            transactionSQL.write(`\tWHERE user_ssn = '${ssn}';\n\n`)
+            transactionSQL.write(`COMMIT;\n\n`)
+            transactionSQL.write(`END;\n\n`)
+
+            res.send("Line Updated")
+        })
+
+    } catch(err) {
+        await pool.query(`ROLLBACK;`)
+        console.log(err)
+        res.send(err.code)
+    }
+
+})
+
+app.post("/api/createLine", async(req,res) => {
+
+    const accountNo = req.body.accountNo;
+    const ssn = req.body.ssn;
+    const firstName = req.body.firstName;
+    const lastName = req.body.lastName;
+    const dob = req.body.dob;
+    const phoneModel = req.body.phoneModel;
+    var phone_number = generateNumber(10)
+
+    try {
+
+        await pool.query(`
+            BEGIN;
+
+            INSERT INTO customer 
+                VALUES ('${ssn}', '${accountNo}', '${firstName}', '${lastName}', '${dob}');
+
+            INSERT INTO phone
+                VALUES('${phone_number}', '${ssn}', '${phoneModel}');
+                
+            COMMIT;
+
+            END;
+        `)
+        .then(result => {
+
+            transactionSQL.write(`BEGIN;\n\n`)
+            transactionSQL.write(`INSERT INTO customer\n`)
+            transactionSQL.write(`\tVALUES ('ssn', 'accountNo', 'firstName', 'lastName', dob);\n\n`)
+            transactionSQL.write(`INSERT INTO phone\n`)
+            transactionSQL.write(`\tVALUES('phone_number', 'ssn', 'phoneModel');\n\n`)
+            transactionSQL.write(`COMMIT;\n\n`)
+            transactionSQL.write(`END;\n\n`)
+
+            res.send("Line Created")
+        })
+
+    } catch(err) {
+        await pool.query(`ROLLBACK;`)
+        console.log(err)
+        res.send(err.code)
+    }
+
+})
 
 app.get("/api/accountLines/:accountNo", async (req, res) => {
 
