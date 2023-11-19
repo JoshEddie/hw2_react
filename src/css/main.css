@@ -110,3 +110,12 @@ main h4 {
     background-color: #ffaa00;
     color: #1a2c62
 }
+
+#transactionTime {
+    position: absolute;
+    bottom: 5px;
+    width: 100%;
+    text-align: center;
+    color:#1a2c62;
+    font-size: 13px;
+}

@@ -7,7 +7,7 @@ import '../css/networkAdmin.css'
 import { useNavigate } from "react-router-dom";
 import Axios from 'axios'
 
-export default function NetworkAdmin() {
+export default function NetworkAdmin({ setTransactionTime }) {
 
     const navigate = useNavigate();
 
@@ -17,10 +17,13 @@ export default function NetworkAdmin() {
     const[databaseIntialized, setDatabaseIntialized] = useState(false)
     const[rowHeaders, setRowHeaders] = useState([])
     const[rows, setRows] = useState([])
-    const[tableSelect, setTableSelect] = useState('account')
+    const[tableSelect, setTableSelect] = useState('phone_account')
     const[showStatus, setShowStatus] = useState(false)
     const[databaseAction, setDatabaseAction] = useState('Database Intializing...')
     const[databaseStatus, setDatabaseStatus] = useState('')
+
+    const[startTime, setStartTime] = useState('');
+    const[endTime, setEndTime] = useState('')
 
     const[warningComponent, setWarningComponent] = useState('')
 
@@ -39,17 +42,14 @@ export default function NetworkAdmin() {
     function getTable(tableName) {
         let orderColumn = '';
         switch(tableName) {
-            case 'account':
-                orderColumn = ' ORDER BY account_ssn'
+            case 'phone_account':
+                orderColumn = ' ORDER BY account_no'
                 break;
             case 'customer':
-                orderColumn = ' ORDER BY account_holder_ssn'
+                orderColumn = ' ORDER BY account_no'
                 break;
-            case 'phone_number':
+            case 'phone':
                 orderColumn = ' ORDER BY number'
-                break;
-            case 'phone_model':
-                orderColumn = ' ORDER BY phone_number'
                 break;
             case 'call':
                 orderColumn = ' ORDER BY call_date DESC'
@@ -64,6 +64,9 @@ export default function NetworkAdmin() {
                 orderColumn = ''
         }
         setError(false)
+
+        setStartTime(performance.now());
+
         Axios.get(`http://localhost:3002/api/getTable`, {
             params: {
                 table: tableName,
@@ -84,6 +87,9 @@ export default function NetworkAdmin() {
                 console.log("No results")
                 return;
             }
+            setEndTime(performance.now());
+            setTransactionTime(endTime - startTime)
+
             var headers = []
             for (const [key, value] of Object.entries(data[0])) {
                 headers.push(key)
@@ -105,25 +111,19 @@ export default function NetworkAdmin() {
             setRows(rows)
             setDatabaseIntialized(true)
         });
+
     }
 
     function deleteTable(table) {
         setShowStatus(true)
         setDatabaseAction('Deleting rows from ' + table)
         setDatabaseStatus('')
+        setStartTime(performance.now());
         fetch(`http://localhost:3002/api/delete/${table}`)
         .then(response => {
             setShowStatus(false)
-        })
-    }
-
-    function dropTable(table) {
-        setShowStatus(true)
-        setDatabaseAction('Dropping ' + table)
-        setDatabaseStatus('')
-        fetch(`http://localhost:3002/api/drop/${table}`)
-        .then(response => {
-            setShowStatus(false)
+            setEndTime(performance.now());
+            setTransactionTime(endTime - startTime);
         })
     }
 
@@ -131,8 +131,11 @@ export default function NetworkAdmin() {
         setShowStatus(true)
         setDatabaseAction('Dropping Tables...')
         setDatabaseStatus('')
+        setStartTime(performance.now());
         fetch(`http://localhost:3002/api/droptables`)
         .then(response => {
+            setEndTime(performance.now());
+            setTransactionTime(endTime - startTime);
             navigate('/')
             setDatabaseStatus('')
         })
@@ -154,7 +157,7 @@ export default function NetworkAdmin() {
     function intializeDatabase() {
         setShowStatus(true)
         setDatabaseAction('Database Intializing...')
-
+        
         fetch(`http://localhost:3002/api/intializeDatabase`)
         .then(response => {
             return response.text();
@@ -177,7 +180,7 @@ export default function NetworkAdmin() {
             console.log(data)
             if (month == 10) {
                 setDatabaseIntialized(true)
-                getTable('account');
+                getTable('phone_account');
                 setShowStatus(false)
                 setDatabaseStatus('')
                 return;
@@ -192,7 +195,7 @@ export default function NetworkAdmin() {
     }
 
     useEffect (() => {
-        getTable('account');
+        getTable('phone_account');
     }, []);
 
     var rowObjects = []
@@ -221,13 +224,13 @@ export default function NetworkAdmin() {
                     <button onClick={() => warning(droptables)}>Drop All Tables</button>
                 </nav>
                 <select id="tableSelectInput" onChange={(e) => setTableSelect(e.target.value)}>
-                    <option value="account">Account</option>
+                    <option value="phone_account">Phone Account</option>
                     <option value="customer">Customer</option>
-                    <option value="phone_number">Phone Number</option>
-                    <option value="phone_model">Phone Model</option>
+                    <option value="phone">Phone</option>
                     <option value="call">Call</option>
                     <option value="data">Data</option>
                     <option value="payment">Payment</option>
+                    <option value="payment_method">Payment Method</option>
                     <option value="bank_account">Bank Account</option>
                     <option value="plan">Plan</option>
                 </select>

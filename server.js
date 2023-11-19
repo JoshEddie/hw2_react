@@ -81,74 +81,65 @@ function randomBirthday() {
 
 }
 
-async function createAccount(ssn, planType, autoPayment, streetAddress, city, state, zipCode, firstName, lastName, dob, phoneModel) {
+async function payment(paymentAmmount, phone_account_no, bank_account_no, dateTime, writeToFile, response) {
 
-    try {
-        
-        await pool.query(`
-            INSERT into account VALUES
-            ('${ssn}', '${planType}', '${autoPayment}', '${streetAddress}', '${city}', '${state}', '${zipCode}');
-        `)
-
-        await pool.query (`
-            INSERT INTO bank_account VALUES
-            ('${ssn}', ${Number(generateNumber(5)) + 100000})
-        `)
-
-        createCustomer(ssn, ssn, firstName, lastName, dob, phoneModel);
-
-    }
-    catch (err) {
-        console.log("Error createAccount(): " + err.message)
-    }
-
-}
-
-async function createCustomer(ssn, accountSSN, firstName, lastName, dob, phoneModel) {
+    let negPaymentAmmount = Number(paymentAmmount) * -1;
 
     try {
 
         await pool.query(`
-            INSERT into customer VALUES
-            ('${firstName}', '${lastName}', '${ssn}', '${dob}', '${accountSSN}');
+
+            BEGIN;
+
+            UPDATE phone_account
+                SET balance_cents = balance_cents + ${paymentAmmount}
+                WHERE account_no = '${phone_account_no}'
+                RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
+
+            UPDATE bank_account
+                SET balance_cents = balance_cents + ${negPaymentAmmount}
+                WHERE account_no = '${bank_account_no}'
+                RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
+
+            INSERT INTO payment (bank_account_no, phone_account_no, payment_date, amount_cents)
+                VALUES ('${bank_account_no}', '${phone_account_no}', TIMESTAMP '${dateTime}', ${negPaymentAmmount});
+
+            COMMIT;
+
+            END;
+
         `)
+        .then(function (result) {
 
-        createPhoneNumber(ssn, phoneModel)
+            if(writeToFile) {
+                transactionSQL.write(`BEGIN;\n\n`);
+                transactionSQL.write(`UPDATE phone_account\n`);
+                transactionSQL.write(`\tSET balance_cents = balance_cents + ${paymentAmmount}\n`);
+                transactionSQL.write(`\tWHERE account_no = '${phone_account_no}'\n`);
+                transactionSQL.write(`\tRETURNING (balance_cents / 100.00)::MONEY as balancedollar;\n\n`);
+                transactionSQL.write(`UPDATE bank_account\n`);
+                transactionSQL.write(`\tSET balance_cents = balance_cents - ${paymentAmmount}\n`);
+                transactionSQL.write(`\tWHERE account_no = '${bank_account_no}'\n`);
+                transactionSQL.write(`\tRETURNING (balance_cents / 100.00)::MONEY as balancedollar;\n\n`);
+                transactionSQL.write(`INSERT INTO payment (bank_account_no, phone_account_no, payment_date, amount_cents)\n`);
+                transactionSQL.write(`\tVALUES ('${bank_account_no}', '${phone_account_no}', TIMESTAMP '${dateTime}', -${paymentAmmount});\n\n`);
+                transactionSQL.write(`COMMIT;\n\n`);
+                transactionSQL.write(`END;\n\n`);
+            }
 
-    }
-    catch (err) {
-        console.log("Error createCustomer(): " + err.message)
-    }
+            console.log("Balance result: " + [result[1].rows[0].balancedollar, result[2].rows[0].balancedollar])
+            if(response != '') {
+                response.send([result[1].rows[0].balancedollar, result[2].rows[0].balancedollar]);
+            }
+            return ([result[1].rows[0].balancedollar, result[2].rows[0].balancedollar])
 
-}
+        });
 
-async function createPhoneNumber(ssn, phoneModel) {
-    
-    try {
-        let phoneNumber = generateNumber(10);
+    } catch (err) {
 
-        await pool.query(`
-            INSERT into phone_number VALUES
-            ('${phoneNumber}', '${ssn}');
-        `)
+        await pool.query(`ROLLBACK`);
+        console.log("Payment Failed " + err);
 
-        createPhoneModel(phoneNumber, phoneModel)
-    }
-    catch (err) {
-        console.log("Error createPhoneNumber(): " + err.message)
-    }
-}
-
-async function createPhoneModel(phoneNumber, phoneModel) {
-
-    try {
-        await pool.query(`
-            INSERT into phone_model VALUES
-            ('${phoneNumber}', '${phoneModel}');
-        `)
-    }
-    catch (err) {
-        console.log("Error createPhoneModel(): " + err.message)
     }
 
 }
@@ -194,14 +185,14 @@ async function chargeBalance(cost, ssn) {
             const updateBalance = await pool.query(`
                 UPDATE account
                 SET balance_cents = balance_cents + ${cost}
-                WHERE account_ssn = '${ssn}'
+                WHERE account_no = '${ssn}'
                 RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
             `)
 
             const updateBankBalance = await pool.query(`
                 UPDATE bank_account
                 SET balance_cents = balance_cents - ${cost}
-                WHERE account_ssn = '${ssn}'
+                WHERE account_no = '${ssn}'
                 RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
             `)
 
@@ -222,21 +213,6 @@ async function chargeBalance(cost, ssn) {
     }
     console.error('Max retries reached, unable to update balance');
     return "error";
-
-}
-
-async function payment(paymentDate, paymentAmount, acountSSN) {
-
-    try {
-        await pool.query(`
-            INSERT INTO payment (payment_date, amount_cents, account_holder_ssn)
-            VALUES (DATE '${paymentDate}', ${paymentAmount}, '${acountSSN}');
-        `)
-        return '';
-    }
-    catch (err) {
-        console.log("Error payment(): " + err.message)
-    }
 
 }
 
@@ -263,17 +239,21 @@ app.get('/', async (req, res) => {
 app.get('/api/droptables', async (req, res) => {
 
     try {
-    await pool.query(`DROP TABLE IF EXISTS account`);
-    await pool.query(`DROP TABLE IF EXISTS customer`);
-    await pool.query(`DROP TABLE IF EXISTS phone_number`);
-    await pool.query(`DROP TABLE IF EXISTS phone_model`);
-    await pool.query(`DROP TABLE IF EXISTS call`);
-    await pool.query(`DROP TABLE IF EXISTS data`);
-    await pool.query(`DROP TABLE IF EXISTS payment`);
-    await pool.query(`DROP TABLE IF EXISTS plan`);
-    res.send("tables dropped")
+        await pool.query(`DROP TABLE IF EXISTS payment_method`);
+        await pool.query(`DROP TABLE IF EXISTS payment`);
+        await pool.query(`DROP TABLE IF EXISTS bank_account`);
+        await pool.query(`DROP TABLE IF EXISTS call`);
+        await pool.query(`DROP TABLE IF EXISTS data`);
+        await pool.query(`DROP TABLE IF EXISTS phone`);
+        await pool.query(`DROP TABLE IF EXISTS customer`);
+        await pool.query(`DROP TABLE IF EXISTS phone_account`);
+        await pool.query(`DROP TABLE IF EXISTS plan`);
+        await pool.query(`DROP SEQUENCE IF EXISTS phone_account_no_sequence`);
+        await pool.query(`DROP SEQUENCE IF EXISTS bank_account_no_sequence`);
+        res.send("tables dropped")
     }
     catch (err) {
+        console.log(err)
         res.send('error')
         return;
     }
@@ -287,92 +267,23 @@ app.get('/api/intializeDatabase', async (req, res) => {
     console.log("Intializing tables")
 
     try {
-        await pool.query(`DROP TABLE IF EXISTS account`);
-        await pool.query(`DROP TABLE IF EXISTS customer`);
-        await pool.query(`DROP TABLE IF EXISTS phone_number`);
-        await pool.query(`DROP TABLE IF EXISTS phone_model`);
+        await pool.query(`DROP TABLE IF EXISTS payment_method`);
+        await pool.query(`DROP TABLE IF EXISTS payment`);
+        await pool.query(`DROP TABLE IF EXISTS bank_account`);
         await pool.query(`DROP TABLE IF EXISTS call`);
         await pool.query(`DROP TABLE IF EXISTS data`);
-        await pool.query(`DROP TABLE IF EXISTS payment`);
+        await pool.query(`DROP TABLE IF EXISTS phone`);
+        await pool.query(`DROP TABLE IF EXISTS customer`);
+        await pool.query(`DROP TABLE IF EXISTS phone_account`);
         await pool.query(`DROP TABLE IF EXISTS plan`);
-        await pool.query(`DROP TABLE IF EXISTS bank_account`);
+        await pool.query(`DROP SEQUENCE IF EXISTS phone_account_no_sequence`);
+        await pool.query(`DROP SEQUENCE IF EXISTS bank_account_no_sequence`);
         }
-        catch (err) {
-            return;
-        }
+    catch (err) {
+        return;
+    }
 
-        try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS account (
-                account_ssn CHAR(9) PRIMARY KEY CHECK (account_ssn <> ''),
-                plan_type VARCHAR NOT NULL CHECK (plan_type <> ''),
-                auto_payment BOOLEAN NOT NULL,
-                street_address VARCHAR NOT NULL CHECK (street_address <> ''),
-                city VARCHAR NOT NULL CHECK (city <> ''),
-                st CHAR(2) NOT NULL,
-                zip_code CHAR(5) NOT NULL,
-                balance_cents BIGINT DEFAULT 0
-            );
-        `)
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS customer (
-                first_name VARCHAR NOT NULL CHECK (first_name <> ''),
-                last_name VARCHAR NOT NULL CHECK (last_name <> ''),
-                ssn CHAR(9) PRIMARY KEY,
-                birthday DATE NOT NULL,
-                account_holder_ssn CHAR(9) NOT NULL
-            );
-        `)
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS phone_number (
-                number CHAR(10) PRIMARY KEY,
-                user_ssn CHAR(9) NOT NULL
-            );
-        `)
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS phone_model (
-                phone_number CHAR(10) PRIMARY KEY,
-                model VARCHAR NOT NULL CHECK (model <> '')
-            );
-        `)
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS call (
-                call_id SERIAL PRIMARY KEY,
-                call_from CHAR(10),
-                call_to CHAR(10),
-                call_length_mins INT,
-                call_date DATE
-            );
-        `)
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS data (
-                data_id SERIAL PRIMARY KEY,
-                phone_number CHAR(10),
-                mb_used DECIMAL,
-                data_date DATE
-            );
-        `)
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS payment (
-                payment_id SERIAL PRIMARY KEY,
-                payment_date DATE NOT NULL,
-                amount_cents BIGINT NOT NULL,
-                account_holder_ssn CHAR(9) NOT NULL
-            );
-        `)
-
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS bank_account (
-                account_ssn CHAR(9) PRIMARY KEY,
-                balance_cents BIGINT DEFAULT 0
-            )
-        `)
+    try {
 
         await pool.query(`
             CREATE TABLE IF NOT EXISTS plan (
@@ -390,6 +301,90 @@ app.get('/api/intializeDatabase', async (req, res) => {
             ('Want it All', 2, 800, false),
             ('Pre-Paid', 4, 1000, true);
         `)
+
+        await pool.query(`
+
+            CREATE SEQUENCE phone_account_no_sequence
+                start 10000000
+                increment 1;
+
+            CREATE TABLE IF NOT EXISTS phone_account (
+                account_no SERIAL PRIMARY KEY,
+                plan_type VARCHAR NOT NULL CHECK (plan_type <> '') REFERENCES plan(plan_name),
+                auto_payment BOOLEAN NOT NULL,
+                street_address VARCHAR NOT NULL CHECK (street_address <> ''),
+                city VARCHAR NOT NULL CHECK (city <> ''),
+                st CHAR(2) NOT NULL,
+                zip_code CHAR(5) NOT NULL,
+                balance_cents BIGINT DEFAULT 0
+            );
+        `)
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS customer (
+                ssn CHAR(9) PRIMARY KEY,
+                account_no INT NOT NULL REFERENCES phone_account(account_no),
+                first_name VARCHAR NOT NULL CHECK (first_name <> ''),
+                last_name VARCHAR NOT NULL CHECK (last_name <> ''),
+                birthday DATE NOT NULL
+            );
+        `)
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS phone (
+                number CHAR(10) PRIMARY KEY,
+                user_ssn CHAR(9) NOT NULL REFERENCES customer(ssn),
+                model VARCHAR NOT NULL CHECK (model <> '')
+            );
+        `)
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS call (
+                call_id SERIAL PRIMARY KEY,
+                call_from CHAR(10) REFERENCES phone(number),
+                call_to CHAR(10),
+                call_length_mins INT,
+                call_date TIMESTAMP
+            );
+        `)
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS data (
+                data_id SERIAL PRIMARY KEY,
+                phone_number CHAR(10) REFERENCES phone(number),
+                mb_used DECIMAL,
+                data_date TIMESTAMP
+            );
+        `)
+
+        await pool.query(`
+            CREATE SEQUENCE bank_account_no_sequence
+                start 1234578
+                increment 13;
+
+            CREATE TABLE IF NOT EXISTS bank_account (
+                account_no SERIAL PRIMARY KEY,
+                balance_cents BIGINT DEFAULT 0
+            );
+        `)
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS payment (
+                payment_id SERIAL PRIMARY KEY,
+                phone_account_no INT NOT NULL REFERENCES phone_account(account_no),
+                bank_account_no INT NOT NULL REFERENCES bank_account(account_no),
+                payment_date TIMESTAMP NOT NULL,
+                amount_cents BIGINT NOT NULL
+            );
+        `)
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS payment_method (
+                bank_account_no INT NOT NULL PRIMARY KEY,
+                phone_account_no INT NOT NULL REFERENCES phone_account(account_no)
+            );
+        `)
+
     } catch (err) {
         console.log("Error 1: " + err.message)
     };
@@ -397,8 +392,9 @@ app.get('/api/intializeDatabase', async (req, res) => {
     console.log("Tables intialized")
 
     try {
+        
         const accountCount = await pool.query(`
-            SELECT COUNT(*) FROM account;
+            SELECT COUNT(*) FROM phone_account;
         `)
 
         if (accountCount.rows[0].count == '0') {
@@ -409,29 +405,63 @@ app.get('/api/intializeDatabase', async (req, res) => {
 
                 try {
 
-                    await pool.query(`BEGIN`);
+                    const ssn = generateNumber(9)
 
-                    createAccount(
-                        generateNumber(9), 
-                        list.planTypes[Math.round(Math.random() * (list.planTypes.length - 1))],
-                        Math.round(Math.random()).toString(), 
-                        randomStreetName(), 
-                        list.city_names[Math.round(Math.random() * (list.city_names.length - 1))], 
-                        list.state_names[Math.round(Math.random() * (list.state_names.length - 1))], 
-                        generateNumber(5), 
-                        randomName(), 
-                        randomName(), 
-                        randomBirthday(), 
-                        list.phone_models[Math.round(Math.random() * (list.phone_models.length - 1))]
-                    );
+                    await pool.query(`
 
-                    await pool.query(`COMMIT`);
-                    await pool.query(`END`);
+                        BEGIN;
+                    
+                        INSERT INTO phone_account (account_no, plan_type, auto_payment, street_address, city, st, zip_code)
+                        VALUES (
+                            nextval('phone_account_no_sequence'),
+                            '${list.planTypes[Math.round(Math.random() * (list.planTypes.length - 1))]}',
+                            '${Math.round(Math.random()).toString()}',
+                            '${randomStreetName()}',
+                            '${list.city_names[Math.round(Math.random() * (list.city_names.length - 1))]}',
+                            '${list.state_names[Math.round(Math.random() * (list.state_names.length - 1))]}',
+                            '${generateNumber(5)}'
+                        );
 
-                }
-                catch (err) {
+                        INSERT INTO bank_account 
+                        VALUES(
+                            nextval('bank_account_no_sequence'),
+                            ${Number(generateNumber(5)) + 10000}
+                        );
+
+                        INSERT INTO customer VALUES
+                            ('${ssn}',
+                            currval('phone_account_no_sequence'),
+                            '${randomName()}',
+                            '${randomName()}',
+                            '${randomBirthday()}');
+
+                        INSERT INTO phone
+                        VALUES (
+                            '${generateNumber(10)}',
+                            '${ssn}',
+                            '${list.phone_models[Math.round(Math.random() * (list.phone_models.length - 1))]}'
+                        );
+
+                        INSERT INTO payment_method
+                            VALUES(currval('bank_account_no_sequence'), currval('phone_account_no_sequence'));
+
+                        INSERT INTO payment (bank_account_no, phone_account_no, payment_date, amount_cents)
+                            VALUES (currval('bank_account_no_sequence'), currval('phone_account_no_sequence'), NOW(), -3500);
+
+                        COMMIT;
+
+                        END;
+
+                    `);
+
+
+
+                } catch (err) {
+
                     await pool.query('ROLLBACK');
-                    console.log("Error 2: " + err.message);
+                    console.log("Error 2: " + err)
+                    i--;
+
                 }
 
             }
@@ -442,23 +472,36 @@ app.get('/api/intializeDatabase', async (req, res) => {
             for (let i = 0; i < 200; i++) {
 
                 const accounts = await pool.query(`
-                    SELECT account_ssn FROM account;
+                    SELECT account_no FROM phone_account;
                 `)
+
+                const ssn = generateNumber(9);
             
                 try {
-                    await pool.query(`BEGIN`);
+                    await pool.query(`
 
-                    createCustomer(
-                        generateNumber(9),
-                        accounts.rows[Math.round(Math.random() * (accounts.rows.length - 1))].account_ssn, 
-                        randomName(), 
-                        randomName(), 
-                        randomBirthday(), 
-                        list.phone_models[Math.round(Math.random() * (list.phone_models.length - 1))]
-                    );
+                        BEGIN;
 
-                    await pool.query(`COMMIT`);
-                    await pool.query(`END`);
+                        INSERT INTO customer VALUES
+                            ('${ssn}',
+                            '${accounts.rows[Math.round(Math.random() * (accounts.rows.length - 1))].account_no}',
+                            '${randomName()}',
+                            '${randomName()}',
+                            '${randomBirthday()}');
+
+                        INSERT INTO phone
+                        VALUES (
+                            '${generateNumber(10)}',
+                            '${ssn}',
+                            '${list.phone_models[Math.round(Math.random() * (list.phone_models.length - 1))]}'
+                        );
+
+                        COMMIT;
+
+                        END;
+
+                    `);
+
                 }
                 catch (err) {
                     await pool.query('ROLLBACK');
@@ -475,8 +518,11 @@ app.get('/api/intializeDatabase', async (req, res) => {
         res.send(`
             Accounts & Customers Intialized.
         `);
+
     } catch (err) {
+
         return;
+
     }
 
 })
@@ -488,28 +534,35 @@ app.get("/api/intializeCallsData/:month", async(req, res) => {
         const month = req.params.month;
 
         const phoneNumbers = await pool.query(`
-            SELECT number FROM phone_number;
+            SELECT number FROM phone;
         `)
 
         for(let i = 0; i < phoneNumbers.rows.length; i++) {
 
-            const account_ssn_planType = await pool.query(`
-                SELECT account.account_ssn, account.plan_type FROM account
-                JOIN customer ON account.account_ssn = customer.account_holder_ssn
-                JOIN phone_number ON phone_number.user_ssn = customer.ssn
-                WHERE phone_number.number = '${phoneNumbers.rows[i].number}'
-                GROUP BY account.account_ssn, account.plan_type;
+            const account_info = await pool.query(`
+                SELECT bank_account.account_no AS ban, phone_account.account_no AS pan, plan_type
+                FROM bank_account
+                JOIN payment_method ON bank_account.account_no = payment_method.bank_account_no
+                JOIN phone_account ON phone_account.account_no = payment_method.phone_account_no
+                JOIN customer ON phone_account.account_no = customer.account_no
+                JOIN phone ON phone.user_ssn = customer.ssn
+                WHERE phone.number = '${phoneNumbers.rows[i].number}'
+                GROUP BY bank_account.account_no, phone_account.account_no, phone_account.plan_type;
             `)
             
             const prices = await pool.query(`
                 SELECT call_price_cents, data_price_cents FROM plan
-                WHERE plan_name = '${account_ssn_planType.rows[0].plan_type}';
+                WHERE plan_name = '${account_info.rows[0].plan_type}';
             `)
 
             for(let call_number = 0; call_number < Math.round(Math.random() * 50 + 1); call_number++) {
                 
                 var call_length = Math.round(360 / (Math.random() * 360 + 1))
-                var day = (Math.round(Math.random() * 28)).toString().padStart(2, '0');
+
+                var day = (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
+                var hour = (Math.round(Math.random() * (23 - 1) + 1)).toString().padStart(2, '0');
+                var minute = (Math.round(Math.random() * 59)).toString().padStart(2, '0');
+                var second = (Math.round(Math.random() * 59)).toString().padStart(2, '0');
 
                 var phone_to = 0;
 
@@ -517,25 +570,37 @@ app.get("/api/intializeCallsData/:month", async(req, res) => {
                     phone_to = Math.round(Math.random() * (phoneNumbers.rows.length - 1));
                 } while(i === phone_to);
 
-                let date = "2023-" + month.toString().padStart(2, '0') + "-" + (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
+                let date = "2023-" + month.toString().padStart(2, '0') + "-" + day;
+                let time = hour + ":" + minute + ":" + second;
                 let call_cost = call_length * Number(prices.rows[0].call_price_cents);
 
                 try {
-                    await pool.query(`BEGIN`);
-                    phoneCall(phoneNumbers.rows[i].number, phoneNumbers.rows[phone_to].number, call_length, date);
-                    chargeBalance(call_cost * -1, account_ssn_planType.rows[0].account_ssn)
 
-                    const balance = await pool.query(`
-                        SELECT balance_cents FROM account
-                        WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
-                    `);
-                    if(account_ssn_planType.rows[0].plan_type == 'Pre-Paid' && balance.rows[0].balance_cents < 0) {
-                        payment(date, 4000, account_ssn_planType.rows[0].account_ssn);
-                        chargeBalance(4000, account_ssn_planType.rows[0].account_ssn)
-                    }
+                    await pool.query(`
+                        BEGIN;
 
-                    await pool.query(`COMMIT`);
-                    await pool.query(`END`);
+                        INSERT INTO call (call_from, call_to, call_length_mins, call_date)
+                            VALUES ('${phoneNumbers.rows[i].number}', '${phoneNumbers.rows[phone_to].number}', ${call_length}, TIMESTAMP '${date} ${time}');
+
+                        UPDATE phone_account
+                            SET balance_cents = balance_cents - ${call_cost}
+                            WHERE account_no = '${account_info.rows[0].pan}'
+                            RETURNING balance_cents;
+
+                        COMMIT;
+
+                        END;
+
+                    `)
+                    .then(function (result) {
+
+                        if(account_info.rows[0].plan_type == 'Pre-Paid' && result[2].rows[0].balance_cents < 0) {
+
+                            payment(4000, account_info.rows[0].pan, account_info.rows[0].ban, date + " " + time, false, '');
+
+                        }
+
+                    });
 
                 }
                 catch (err) {
@@ -546,78 +611,88 @@ app.get("/api/intializeCallsData/:month", async(req, res) => {
             }
 
             for(let data_use = 0; data_use < Math.round(Math.random() * 50 + 1); data_use++) {
+
                 var mb_used = Math.floor(500 / (Math.random() * 500 + 1)) + Math.random();
-                var day = (Math.round(Math.random() * 28)).toString().padStart(2, '0');
+                var day = (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
+                var hour = (Math.round(Math.random() * (23 - 1) + 1)).toString().padStart(2, '0');
+                var minute = (Math.round(Math.random() * 59)).toString().padStart(2, '0');
+                var second = (Math.round(Math.random() * 59)).toString().padStart(2, '0');
 
-                var phone_to = 0;
+                let date = "2023-" + month.toString().padStart(2, '0') + "-" + day;
+                let time = hour + ":" + minute + ":" + second;
 
-                do {
-                    phone_to = Math.round(Math.random() * phoneNumbers.rows.length);
-                } while(i === phone_to);
-
-                let date = "2023-" + month.toString().padStart(2, '0') + "-" + (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
                 let data_cost = Math.floor((mb_used / 1000) * Number(prices.rows[0].data_price_cents));
 
                 try {
-                    dataUse(phoneNumbers.rows[i].number, mb_used, date);
-                }
-                catch (err) {console.log("Error 5: " + err.message)}
 
-                try {
+                    await pool.query(`
+                        BEGIN;
 
-                    await pool.query(`BEGIN`)
+                        INSERT INTO data (phone_number, mb_used, data_date)
+                            VALUES ('${phoneNumbers.rows[i].number}', ${mb_used}, TIMESTAMP '${date} ${time}');
 
-                    dataUse(phoneNumbers.rows[i].number, mb_used, date);
-                    chargeBalance(data_cost * -1, account_ssn_planType.rows[0].account_ssn)
+                        UPDATE phone_account
+                            SET balance_cents = balance_cents - ${data_cost}
+                            WHERE account_no = '${account_info.rows[0].pan}'
+                            RETURNING balance_cents;
 
-                    const balance = await pool.query(`
-                        SELECT balance_cents FROM account
-                        WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
-                    `);
-                    if(account_ssn_planType.rows[0].plan_type == 'Pre-Paid' && balance.rows[0].balance_cents < 0) {
-                        payment(date, 4000, account_ssn_planType.rows[0].account_ssn);
-                        chargeBalance(4000, account_ssn_planType.rows[0].account_ssn)
-                    }
+                        COMMIT;
 
-                    await pool.query(`COMMIT`);
-                    await pool.query(`END`);
+                        END;
+
+                    `)
+                    .then(async function (result) {
+
+                        if(account_info.rows[0].plan_type == 'Pre-Paid' && result[2].rows[0].balance_cents < 0) {
+
+                            payment(4000, account_info.rows[0].pan, account_info.rows[0].ban, date + " " + time, false, '');
+
+                        }
+
+                    });
 
                 }
                 catch (err) {
                     await pool.query(`ROLLBACK`);
-                    console.log("Error 6: " + err.message)
+                    console.log("Error 5: " + err.message)
                 }
 
             }
 
-            if (month != 10) {
+        }
+
+        if (month != 10) {
+
+            const account_info = await pool.query(`
+                SELECT phone_account.account_no AS pan, bank_account.account_no AS ban, phone_account.balance_cents AS balance, plan_type FROM phone_account
+                JOIN payment_method ON phone_account.account_no = phone_account_no
+                JOIN bank_account ON bank_account.account_no = bank_account_no
+                GROUP BY phone_account.account_no, bank_account.account_no, phone_account.balance_cents, plan_type;
+            `);
+            
+
+            for (let i = 0; i < account_info.rows.length; i++) {
+
                 try {
-                    const balance = await pool.query(`
-                        SELECT balance_cents FROM account
-                        WHERE account.account_ssn = '${account_ssn_planType.rows[0].account_ssn}';
-                    `);
 
                     let date = "2023-" + month.toString().padStart(2, '0') + "-28";
+                    var day = (Math.round(Math.random() * (28 - 1) + 1)).toString().padStart(2, '0');
+                    var hour = (Math.round(Math.random() * (23 - 1) + 1)).toString().padStart(2, '0');
+                    var minute = (Math.round(Math.random() * 59)).toString().padStart(2, '0');
+                    var second = (Math.round(Math.random() * 59)).toString().padStart(2, '0');
 
-                    if(balance.rows[0].balance_cents < 0 && account_ssn_planType.rows[0].plan_type != 'Pre-Paid') {
+                    let time = hour + ":" + minute + ":" + second;
 
-                        await pool.query(`BEGIN`);
-
-                        payment(date, balance.rows[0].balance_cents * -1, account_ssn_planType.rows[0].account_ssn);
-                        chargeBalance(balance.rows[0].balance_cents * -1, account_ssn_planType.rows[0].account_ssn)
-
-                        await pool.query(`COMMIT`);
-                        await pool.query(`END`);
-
+                    if(account_info.rows[i].balance < 0 && account_info.rows[i].plan_type != 'Pre-Paid') {
+                        payment(Number(account_info.rows[i].balance) * -1, account_info.rows[i].pan, account_info.rows[i].ban, date + " " + time, false, '');
                     }
 
                 }
                 catch (err) {
-                    await pool.query(`ROLLBACK`);
                     console.log("Error 7: " + err.message)
                 }
-            }
 
+            }
         }
 
         console.log("Calls & Data Uses for " + month + "/2023 intialized")
@@ -687,7 +762,7 @@ app.post("/api/createAccount", async (req,res) => {
 
     try {
 
-        const accountSSN = req.body.accountSSN;
+        const ssn = req.body.ssn;
         const planType = req.body.planType;
         const autoPayment = req.body.autoPayment;
         const streetAddress = req.body.streetAddress;
@@ -707,23 +782,24 @@ app.post("/api/createAccount", async (req,res) => {
 
             BEGIN;
 
-            INSERT into account VALUES
-                ('${accountSSN}', '${planType}', '${autoPayment}', '${streetAddress}', '${city}', '${state}', '${zipCode}', 8000);
+            INSERT INTO phone_account VALUES
+                (nextval('phone_account_no_sequence'), '${planType}', '${autoPayment}', '${streetAddress}', '${city}', '${state}', '${zipCode}')
+                RETURNING account_no;
 
             INSERT INTO bank_account VALUES
-                ('${accountSSN}', ${Number(generateNumber(5)) + 10000});
+                (nextval('bank_account_no_sequence'), ${Number(generateNumber(5)) + 10000});
 
-            INSERT into customer VALUES
-                ('${firstName}', '${lastName}', '${accountSSN}', '${dob}', '${accountSSN}');
+            INSERT INTO customer VALUES
+                ('${ssn}', currval('phone_account_no_sequence'), '${firstName}', '${lastName}', '${dob}');
 
-            INSERT into phone_number VALUES
-                ('${phone_number}', '${accountSSN}');
+            INSERT INTO phone VALUES
+                ('${phone_number}', '${ssn}', '${phoneModel}');
 
-            INSERT into phone_model VALUES
-                ('${phone_number}', '${phoneModel}');
+            INSERT INTO payment_method VALUES
+                (currval('bank_account_no_sequence'), currval('phone_account_no_sequence'));
 
-            INSERT INTO payment (payment_date, amount_cents, account_holder_ssn)
-                VALUES (NOW(), -8000, '${accountSSN}');
+            INSERT INTO payment (bank_account_no, phone_account_no, payment_date, amount_cents)
+                VALUES (currval('bank_account_no_sequence'), currval('phone_account_no_sequence'), NOW(), -3500);
 
             COMMIT;
 
@@ -733,22 +809,24 @@ app.post("/api/createAccount", async (req,res) => {
         .then(function (result) {
 
             transactionSQL.write(`BEGIN;\n\n`);
-            transactionSQL.write(`INSERT into account VALUES\n`);
-            transactionSQL.write(`\t('${accountSSN}', '${planType}', '${autoPayment}', '${streetAddress}', '${city}', '${state}', '${zipCode}', 8000);\n\n`);
+            transactionSQL.write(`INSERT INTO phone_account VALUES\n`);
+            transactionSQL.write(`\t(nextval('phone_account_no_sequence'), '${planType}', '${autoPayment}', '${streetAddress}', '${city}', '${state}', '${zipCode}')\n`);
+            transactionSQL.write(`RETURNING account_no;\n\n`)
             transactionSQL.write(`INSERT INTO bank_account VALUES\n`);
-            transactionSQL.write(`\t('${accountSSN}', ${Number(generateNumber(5)) + 10000});\n\n`);
-            transactionSQL.write(`INSERT into customer VALUES\n`);
-            transactionSQL.write(`\t('${firstName}', '${lastName}', '${accountSSN}', '${dob}', '${accountSSN}');\n\n`);
-            transactionSQL.write(`INSERT into phone_number VALUES\n`);
-            transactionSQL.write(`\t('${phone_number}', '${accountSSN}');\n\n`);
-            transactionSQL.write(`INSERT into phone_model VALUES\n`);
-            transactionSQL.write(`\t('${phone_number}', '${phoneModel}');\n\n`);
-            transactionSQL.write(`INSERT INTO payment (payment_date, amount_cents, account_holder_ssn)\n`);
-            transactionSQL.write(`\tVALUES (NOW(), -8000, '${accountSSN}');\n\n`);
+            transactionSQL.write(`\t(nextval('bank_account_no_sequence'), ${Number(generateNumber(5)) + 10000});\n\n`);
+            transactionSQL.write(`INSERT INTO customer VALUES\n`);
+            transactionSQL.write(`\t('${ssn}', currval('phone_account_no_sequence'), '${firstName}', '${lastName}', '${dob}');\n\n`);
+            transactionSQL.write(`INSERT INTO phone VALUES\n`);
+            transactionSQL.write(`\t('${phone_number}', '${ssn}', '${phoneModel}');\n\n`);
+            transactionSQL.write(`INSERT INTO payment_method VALUES\n`);
+            transactionSQL.write(`\t(currval('bank_account_no_sequence'), currval('phone_account_no_sequence'));\n\n`);
+            transactionSQL.write(`INSERT INTO payment (bank_account_no, phone_account_no, payment_date, amount_cents)\n`);
+            transactionSQL.write(`\tVALUES (currval('bank_account_no_sequence'), currval('phone_account_no_sequence'), NOW(), -3500);\n\n`);
             transactionSQL.write(`COMMIT;\n\n`);
             transactionSQL.write(`END;\n\n`);
 
-            res.send('Account Created')
+            console.log("New account created: " + result[1].rows[0].account_no)
+            res.send(['Account Created', result[1].rows[0].account_no])
 
         });
 
@@ -810,14 +888,14 @@ app.get("/api/accounts/:type&:input", async (req,res) => {
         }
 
         const result = await pool.query(`
-            SELECT number, first_name, last_name, account_holder_ssn FROM customer
-            JOIN phone_number ON customer.ssn = phone_number.user_ssn
+            SELECT number, first_name, last_name, account_no FROM customer
+            JOIN phone ON customer.ssn = phone.user_ssn
             WHERE UPPER(${searchColumn}) LIKE UPPER('${input}%');
         `, [])
         .then(function (result) {
 
-            querySQL.write(`SELECT number, first_name, last_name, account_holder_ssn FROM customer\n`);
-            querySQL.write(`JOIN phone_number ON customer.ssn = phone_number.user_ssn\n`);
+            querySQL.write(`SELECT number, first_name, last_name, account_no FROM customer\n`);
+            querySQL.write(`JOIN phone ON customer.ssn = phone.user_ssn\n`);
             querySQL.write(`WHERE UPPER(${searchColumn}) LIKE UPPER('${input}%');\n\n`);
 
             var accounts = []
@@ -827,7 +905,7 @@ app.get("/api/accounts/:type&:input", async (req,res) => {
                     result.rows[i].number,
                     result.rows[i].first_name,
                     result.rows[i].last_name,
-                    result.rows[i].account_holder_ssn
+                    result.rows[i].account_no
                 ])
             }
 
@@ -843,22 +921,22 @@ app.get("/api/accounts/:type&:input", async (req,res) => {
     
 })
 
-app.get("/api/accountDetails/:accountSSN", async (req, res) => {
+app.get("/api/accountDetails/:accountNo", async (req, res) => {
 
     try {
-        const ssn = req.params.accountSSN;
-        console.log(ssn)
+        const accountNo = req.params.accountNo;
+        console.log(accountNo)
 
         await pool.query(`
-            SELECT account.account_ssn, first_name, last_name, street_address, city, st, zip_code, plan_type, balance_cents FROM account
-            JOIN customer ON customer.ssn = account.account_ssn
-            WHERE account.account_ssn = '${ssn}';
+            SELECT phone_account.account_no, first_name, last_name, street_address, city, st, zip_code, plan_type, balance_cents FROM phone_account
+            JOIN customer ON customer.account_no = phone_account.account_no
+            WHERE phone_account.account_no = '${accountNo}';
         `, [])
         .then(function (result) {
 
-            querySQL.write(`SELECT account.account_ssn, first_name, last_name, street_address, city, st, zip_code, plan_type, balance_cents FROM account\n`);
-            querySQL.write(`JOIN customer ON customer.ssn = account.account_ssn\n`);
-            querySQL.write(`WHERE account.account_ssn = '${ssn}';\n\n`);
+            querySQL.write(`SELECT phone_account.account_no, first_name, last_name, street_address, city, st, zip_code, plan_type, balance_cents FROM phone_account\n`);
+            querySQL.write(`JOIN customer ON customer.account_no = phone_account.account_no\n`);
+            querySQL.write(`WHERE phone_account.account_no = '${accountNo}';\n\n`);
 
             var row = []
 
@@ -885,43 +963,49 @@ app.get("/api/accountBill", async (req, res) => {
 
     try {
 
-        const ssn = req.query.accountNumber;
-        const tableName = req.query.tableName;
+        const accountNo = req.query.accountNumber;
 
         await pool.query(`
-            SELECT (balance_cents / 100.00)::MONEY as balancedollars FROM ${tableName}
-            WHERE account_ssn = '${ssn}';
+            SELECT (phone_account.balance_cents / 100.00)::MONEY as pbd, (bank_account.balance_cents / 100.00)::MONEY as bbd
+                FROM phone_account
+                JOIN payment_method ON phone_account.account_no = payment_method.phone_account_no
+                JOIN bank_account ON payment_method.bank_account_no = bank_account.account_no
+                WHERE phone_account.account_no = '${accountNo}'
+                GROUP BY pbd, bbd;
         `)
         .then(function (result) {
 
-            querySQL.write(`SELECT (balance_cents / 100.00)::MONEY as balancedollars FROM ${tableName}\n`);
-            querySQL.write(`WHERE account_ssn = '${ssn}';\n\n`);
+            querySQL.write(`SELECT (phone_account.balance_cents / 100.00)::MONEY as pbd, (bank_account.balance_cents / 100.00)::MONEY as bbd\n`);
+            querySQL.write(`\tFROM phone_account\n`);
+            querySQL.write(`\tJOIN payment_method ON phone_account.account_no = payment_method.phone_account_no\n`);
+            querySQL.write(`\tJOIN bank_account ON payment_method.bank_account_no = bank_account.account_no\n`);
+            querySQL.write(`\tWHERE phone_account.account_no = '${accountNo}'\n`);
+            querySQL.write(`\tGROUP BY pbd, bbd;\n\n`);
 
-            console.log("Account Bill: " + result.rows[0].balancedollars)
-            res.send(result.rows[0].balancedollars);
+            res.send([result.rows[0].pbd, result.rows[0].bbd]);
 
-        })
+        });
 
     } catch (err) {
-        console.log("Error: " + err.message)
+        console.log("Error 9: " + err.message)
     }
 
-})
+});
 
-app.get("/api/accountLines/:accountSSN", async (req, res) => {
+app.get("/api/accountLines/:accountNo", async (req, res) => {
 
     try {
 
-        const ssn = req.params.accountSSN;
-        console.log("Account Lines: " + ssn)
+        const accountNo = req.params.accountNo;
+        console.log("Account Lines: " + accountNo)
 
         await pool.query(`
             WITH calls AS (
-                SELECT number, first_name, last_name, TO_CHAR(SUM(COALESCE(call_length_mins, 0)), 'fm999G999') as minutes
+                SELECT number, model, first_name, last_name, TO_CHAR(SUM(COALESCE(call_length_mins, 0)), 'fm999G999') as minutes
                 FROM customer
-                JOIN phone_number ON customer.ssn = phone_number.user_ssn
-                LEFT JOIN call ON phone_number.number = call.call_from OR phone_number.number = call.call_to
-                WHERE account_holder_ssn = '${ssn}'
+                JOIN phone ON customer.ssn = phone.user_ssn
+                LEFT JOIN call ON phone.number = call.call_from OR phone.number = call.call_to
+                WHERE account_no = '${accountNo}'
                 GROUP BY number, first_name, last_name
             ),
             dataUsed AS (
@@ -931,17 +1015,16 @@ app.get("/api/accountLines/:accountSSN", async (req, res) => {
             )
             SELECT number, model, first_name, last_name, minutes, COALESCE(data_used, '0') as data_used
             FROM calls
-            LEFT JOIN dataUsed ON calls.number = dataUsed.phone_number
-            JOIN phone_model ON calls.number = phone_model.phone_number;
+            LEFT JOIN dataUsed ON calls.number = dataUsed.phone_number;
         `, [])
         .then(function (result) {
 
             querySQL.write(`WITH calls AS (\n`);
             querySQL.write(`\tSELECT number, first_name, last_name, TO_CHAR(SUM(COALESCE(call_length_mins, 0)), 'fm999G999') as minutes\n`);
             querySQL.write(`\tFROM customer\n`);
-            querySQL.write(`\tJOIN phone_number ON customer.ssn = phone_number.user_ssn\n`);
-            querySQL.write(`\tLEFT JOIN call ON phone_number.number = call.call_from OR phone_number.number = call.call_to\n`);
-            querySQL.write(`\tWHERE account_holder_ssn = '${ssn}'\n`);
+            querySQL.write(`\tJOIN phone ON customer.ssn = phone.user_ssn\n`);
+            querySQL.write(`\tLEFT JOIN call ON phone.number = call.call_from OR phone.number = call.call_to\n`);
+            querySQL.write(`\tWHERE account_no = '${accountNo}'\n`);
             querySQL.write(`\tGROUP BY number, first_name, last_name\n`);
             querySQL.write(`),\n`);
             querySQL.write(`dataUsed AS (\n`);
@@ -978,11 +1061,138 @@ app.get("/api/accountLines/:accountSSN", async (req, res) => {
 
 });
 
+app.get("/api/getCalls", async (req, res) => {
+
+    const accountNo = req.query.accountNo;
+    const phone_num = req.query.phone_num;
+    let phone_num_condition = '';
+
+    if(phone_num != 'All') {
+        phone_num_condition = ` AND phone.number = '${phone_num}'`
+    }
+
+    console.log("Get calls: " + accountNo + " " + phone_num);
+
+    try {
+
+        await pool.query(`
+            SELECT call_from, call_to, call_length_mins as minutes, TO_CHAR(call_date,'MM-DD-YYYY') as Date, TO_CHAR(call_date,'HH24:MI:SS') as Time
+            FROM call
+            JOIN phone ON phone.number = call.call_from OR phone.number = call.call_to
+            JOIN customer ON customer.ssn = phone.user_ssn
+            WHERE customer.account_no = '${accountNo}'${phone_num_condition}
+            GROUP BY call_from, call_to, minutes, Date, Time
+            ORDER BY date DESC, time DESC;
+        `)
+        .then(function (result) {
+
+            querySQL.write(`SELECT call_from, call_to, call_length_mins as minutes, TO_CHAR(call_date,'MM-DD-YYYY') as Date, TO_CHAR(call_date,'HH24:MI:SS') as Time\n`);
+            querySQL.write(`FROM call\n`);
+            querySQL.write(`JOIN phone ON phone.number = call.call_from OR phone.number = call.call_to\n`);
+            querySQL.write(`JOIN customer ON customer.ssn = phone.user_ssn\n`);
+            querySQL.write(`WHERE customer.account_no = '${accountNo}'${phone_num_condition}\n`);
+            querySQL.write(`GROUP BY call_from, call_to, minutes, Date, Time\n`);
+            querySQL.write(`ORDER BY date DESC, time DESC;\n\n`);
+
+            console.log("Number of Calls: " + result.rows.length)
+            
+            if(result.rows.length > 0) {
+
+                var calls = []
+
+                for(let i = 0; i < result.rows.length; i++) {
+                    calls.push([
+                        result.rows[i].call_from,
+                        result.rows[i].call_to,
+                        result.rows[i].minutes,
+                        result.rows[i].date,
+                        result.rows[i].time
+                    ])
+                }
+
+                res.send(calls)
+
+            }
+            else {
+                res.send("No results")
+            }
+
+        })
+
+    } catch(err) {
+        console.log(err);
+    }
+
+});
+
+app.get("/api/getData", async (req, res) => {
+
+    const accountNo = req.query.accountNo;
+    console.log("Get Data: " + accountNo);
+    
+    const phone_num = req.query.phone_num;
+    let phone_num_condition = '';
+
+    if(phone_num != 'All') {
+        phone_num_condition = ` AND phone.number = '${phone_num}'`
+    }
+
+    try {
+
+        await pool.query(`
+            SELECT phone_number, mb_used, TO_CHAR(data_date,'MM-DD-YYYY') as Date, TO_CHAR(data_date,'HH24:MI:SS') as Time
+            FROM data
+            JOIN phone ON phone.number = data.phone_number
+            JOIN customer ON customer.ssn = phone.user_ssn
+            WHERE customer.account_no = '${accountNo}'${phone_num_condition}
+            GROUP BY phone_number, mb_used, Date, Time
+            ORDER BY date DESC, time DESC;
+        `)
+        .then(function (result) {
+
+            querySQL.write(`SELECT phone_number, mb_used, TO_CHAR(data_date,'MM-DD-YYYY') as Date, TO_CHAR(data_date,'HH24:MI:SS') as Time\n`);
+            querySQL.write(`FROM data\n`);
+            querySQL.write(`JOIN phone ON phone.number = data.phone_number\n`);
+            querySQL.write(`JOIN customer ON customer.ssn = phone.user_ssn\n`);
+            querySQL.write(`WHERE customer.account_no = '${accountNo}'${phone_num_condition}\n`);
+            querySQL.write(`GROUP BY phone_number, mb_used, Date, Time\n`);
+            querySQL.write(`ORDER BY date DESC, time DESC;\n\n`);
+
+            console.log("Number of Data Use: " + result.rows.length)
+            
+            if(result.rows.length > 0) {
+
+                var dataUse = []
+
+                for(let i = 0; i < result.rows.length; i++) {
+                    dataUse.push([
+                        result.rows[i].phone_number,
+                        result.rows[i].mb_used,
+                        result.rows[i].date,
+                        result.rows[i].time
+                    ])
+                }
+
+                res.send(dataUse)
+
+            }
+            else {
+                res.send("No results")
+            }
+
+        })
+
+    } catch(err) {
+        console.log(err);
+    }
+
+});
+
 app.post("/api/makePayment", async (req,res) => {
 
     try {
 
-        const accountSSN = req.body.accountSSN;
+        const accountNo = req.body.accountNo;
         const paymentAmount = Math.floor(Number(req.body.paymentAmount) * 100);
 
         console.log("Payment: " + paymentAmount)
@@ -994,47 +1204,28 @@ app.post("/api/makePayment", async (req,res) => {
         let year = date.getFullYear();
 
         await pool.query(`
-            BEGIN;
-
-            INSERT INTO payment (payment_date, amount_cents, account_holder_ssn)
-                VALUES (DATE '${year}-${month}-${day}', ${paymentAmount}, '${accountSSN}');
-
-            UPDATE account
-                SET balance_cents = balance_cents + ${paymentAmount}
-                WHERE account_ssn = '${accountSSN}'
-                RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
-
-            UPDATE bank_account
-                SET balance_cents = balance_cents - ${paymentAmount}
-                WHERE account_ssn = '${accountSSN}'
-                RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
-
-            COMMIT;
-
-            END;
-
+            SELECT phone_account.account_no AS pan, bank_account.account_no AS ban
+            FROM phone_account
+            JOIN payment_method ON phone_account.account_no = payment_method.phone_account_no
+            JOIN bank_account ON payment_method.bank_account_no = bank_account.account_no
+            WHERE phone_account.account_no = '${accountNo}'
+            GROUP BY pan, ban;
         `)
         .then(function (result) {
 
-            transactionSQL.write(`BEGIN;\n\n`);
-            transactionSQL.write(`INSERT INTO payment (payment_date, amount_cents, account_holder_ssn)\n`);
-            transactionSQL.write(`\tVALUES (DATE '${year}-${month}-${day}', ${paymentAmount}, '${accountSSN}');\n\n`);
-            transactionSQL.write(`UPDATE account\n`);
-            transactionSQL.write(`\tSET balance_cents = balance_cents + ${paymentAmount}\n`);
-            transactionSQL.write(`\tWHERE account_ssn = '${accountSSN}'\n`);
-            transactionSQL.write(`\tRETURNING (balance_cents / 100.00)::MONEY as balancedollar;\n\n`);
-            transactionSQL.write(`UPDATE bank_account\n`);
-            transactionSQL.write(`\tSET balance_cents = balance_cents - ${paymentAmount}\n`);
-            transactionSQL.write(`\tWHERE account_ssn = '${accountSSN}'\n`);
-            transactionSQL.write(`\tRETURNING (balance_cents / 100.00)::MONEY as balancedollar;\n\n`);
-            transactionSQL.write(`COMMIT;\n\n`);
-            transactionSQL.write(`END;\n\n`);
+            querySQL.write(`SELECT phone_account.account_no AS pan, bank_account.account_no AS ban\n`);
+            querySQL.write(`\tFROM phone_account\n`);
+            querySQL.write(`\tJOIN payment_method ON phone_account.account_no = payment_method.phone_account_no\n`);
+            querySQL.write(`\tJOIN bank_account ON payment_method.bank_account_no = bank_account.account_no\n`);
+            querySQL.write(`\tWHERE phone_account.account_no = '${accountNo}'\n`);
+            querySQL.write(`\tGROUP BY pan, ban;\n`);
 
-            console.log("Balance result: " + result[2].rows[0].balancedollar)
-            res.send([result[2].rows[0].balancedollar, result[3].rows[0].balancedollar])
-            return;
+            payment(paymentAmount, result.rows[0].pan, result.rows[0].ban, 'NOW()', true, res);
 
-        });
+        })
+
+        
+        return;
 
     } catch (err) {
         console.log("Error on Making Payment: " + err.message)
@@ -1048,25 +1239,26 @@ app.get("/api/getPayments", async(req,res) => {
 
     try {
 
-        const ssn = req.query.accountSSN;
+        const accountNo = req.query.accountNo;
 
         await pool.query(`
-            SELECT payment_date::DATE as Date, (amount_cents / 100.00)::MONEY as Payment 
+            SELECT TO_CHAR(payment_date,'MM-DD-YYYY') as Date, TO_CHAR(payment_date,'HH24:MI:SS') as Time, (amount_cents / 100.00)::MONEY as Payment 
             FROM payment 
-            WHERE account_holder_ssn = '${ssn}'
-            ORDER BY Date DESC;
+            WHERE phone_account_no = '${accountNo}'
+            ORDER BY Date DESC, Time DESC;
         `)
         .then(function (result) {
 
             querySQL.write(`SELECT payment_date::DATE as Date, (amount_cents / 100.00)::MONEY as Payment\n`);
             querySQL.write(`FROM payment\n`);
-            querySQL.write(`WHERE account_holder_ssn = '${ssn}'\n`);
+            querySQL.write(`WHERE phone_account_no = '${accountNo}'\n`);
             querySQL.write(`ORDER BY Date DESC;\n\n`);
 
             res.send(result.rows)
         });
 
     } catch (err) {
+        console.log("Error 10: " + err)
         return;
     }
 })

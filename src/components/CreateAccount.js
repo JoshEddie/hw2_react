@@ -5,7 +5,7 @@ import { phone_models, state_names } from '../lists.js'
 import '../css/createAccount.css'
 import Axios from 'axios'
 
-export default function CreateAccount() {
+export default function CreateAccount({ setTransactionTime }) {
 
     const navigate = useNavigate();
 
@@ -32,8 +32,9 @@ export default function CreateAccount() {
     }
 
     function createAccount() {
+        var startTime = performance.now();
         Axios.post(`http://localhost:3002/api/createAccount`, {
-            accountSSN: accountSSN,
+            ssn: accountSSN,
             planType: planType,
             autoPayment: autoPayment,
             streetAddress: streetAddress,
@@ -46,8 +47,10 @@ export default function CreateAccount() {
             phoneModel: phoneModel
         })
         .then(response => {
+            var endTime = performance.now();
+            setTransactionTime(endTime - startTime);
             console.log(response.data); 
-            if(response.data != 'Account Created') {
+            if(response.data[0] != 'Account Created') {
                 if(response.data == 23505) {
                     setErrorMessage(' - SSN already exists.')
                 }
@@ -61,7 +64,7 @@ export default function CreateAccount() {
                 setError(true)
                 return;
             }
-            navigate(`/account/${accountSSN}`)
+            navigate(`/account/${response.data[1]}`)
             console.log("Account Created")
         });
 

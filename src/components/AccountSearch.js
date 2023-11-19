@@ -34,7 +34,7 @@ function formatPhone(number) {
 
 }
 
-export default function AccountSearch() {
+export default function AccountSearch({ setTransactionTime }) {
 
     const navigate = useNavigate();
 
@@ -45,10 +45,12 @@ export default function AccountSearch() {
 
     function checkifAccountsExist() {
 
+        var startTime = performance.now();
+
         Axios.get(`http://localhost:3002/api/getTable`, {
             params: {
-                table: "account",
-                order: " ORDER BY account_ssn"
+                table: "phone_account",
+                order: " ORDER BY account_no"
             }
         })
         .then(response => {
@@ -68,6 +70,9 @@ export default function AccountSearch() {
             }
 
         })
+
+        var endTime = performance.now();
+        setTransactionTime(endTime - startTime)
         
     }
 

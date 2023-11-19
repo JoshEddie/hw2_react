@@ -5,7 +5,7 @@ import { formatPhone } from './generalScripts'
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
-export default function AccountLines() {
+export default function AccountLines({ setTransactionTime }) {
 
     let { accountNumber } = useParams();
 
@@ -13,11 +13,14 @@ export default function AccountLines() {
     const[accountLines, setAccountLines] = useState([])
 
     function getAccountLines() {
+        var startTime = performance.now();
         fetch(`http://localhost:3002/api/accountLines/${accountNumber}`)
             .then(response => {
                 return response.json();
             })
             .then(data => {
+                var endTime = performance.now();
+                setTransactionTime(endTime - startTime);
                 setAccountLines([...data]);
             });
     }

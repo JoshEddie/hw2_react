@@ -11,22 +11,25 @@ import NetworkAdmin from './components/NetworkAdmin';
 import './css/main.css';
 
 import { HashRouter, BrowserRouter, Routes, Route, useParams } from "react-router-dom";
+import { useState } from 'react';
 
 function App() {
+
+  const [transactionTime, setTransactionTime] = useState('0');
   
   return (
     <HashRouter>
       <Routes>
-        <Route path="" element={<Main />}>
-          <Route path="admin" element={<NetworkAdmin />} />
-          <Route path="" element={<AccountSearch />} />
-          <Route path="account/create" element={<CreateAccount />} />
-          <Route path="account/:accountNumber" element={<Account />}>
-            <Route path="" element={<Billing />}/>
-            <Route path="lines" element={<AccountLines />}/>
-            <Route path="calls" element={<Calls />}/>
-            <Route path="datause" element={<DataUse />}/>
-            <Route path="editinfo" element={<EditInfo />}/>
+        <Route path="" element={<Main transactionTime={transactionTime}/>}>
+          <Route path="admin" element={<NetworkAdmin setTransactionTime={setTransactionTime}/>} />
+          <Route path="" element={<AccountSearch setTransactionTime={setTransactionTime}/>} />
+          <Route path="account/create" element={<CreateAccount setTransactionTime={setTransactionTime}/>} />
+          <Route path="account/:accountNumber" element={<Account setTransactionTime={setTransactionTime}/>}>
+            <Route path="" element={<Billing setTransactionTime={setTransactionTime}/>}/>
+            <Route path="lines" element={<AccountLines setTransactionTime={setTransactionTime}/>}/>
+            <Route path="calls" element={<Calls setTransactionTime={setTransactionTime}/>}/>
+            <Route path="datause" element={<DataUse setTransactionTime={setTransactionTime}/>}/>
+            <Route path="editinfo" element={<EditInfo setTransactionTime={setTransactionTime}/>}/>
           </Route>
         </Route>
       </Routes>

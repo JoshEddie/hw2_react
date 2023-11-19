@@ -46,7 +46,8 @@
     margin-right: 10px;
 }
 
-#stateInput {
+#stateInput,
+#lineFilter {
     padding: 7px;
     background-color: #ffffff;
     font-size: 18px;
@@ -56,6 +57,11 @@
     border-radius: 10px;
     width: 70px;
     margin-right: 10px;
+}
+
+#lineFilter {
+    width: 170px;
+    margin-bottom: 10px;
 }
 
 #zipCodeInput {

@@ -4,8 +4,6 @@ import Axios from 'axios'
 
 import Row from './Row'
 import Table from './Table'
-import { formatPhone } from './generalScripts'
-import AccountLines from "./AccountLines";
 
 import '../css/account.css';
 

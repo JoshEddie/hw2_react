@@ -8,6 +8,13 @@
 #tableWrapper.accountDetails,
 #tableWrapper.accountLines {
     height: auto;
+    max-height: calc(100% - 165px);
+    margin-top: 0;
+}
+
+#tableWrapper.callsData {
+    height: auto;
+    max-height: calc(100% - 210px);
     margin-top: 0;
 }
 
