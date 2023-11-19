@@ -74,3 +74,10 @@ main h3 .negative {
 #paymentsTable #tableWrapper {
     height: calc(100vh - 552px);
 }
+
+#simulateCallData {
+    display: inline-block;
+    width: 300px;
+    line-height: 35.5px;
+    font-size: 18px;
+}

@@ -14,8 +14,10 @@ export default function DataUse({ setTransactionTime }) {
 
     var dataHeaders = ['Phone Number', 'MB Used', 'Date', 'Time'];
     const[dataUse, setDataUse] = useState([]);
+    const[currentNum, setCurrentNum] = useState('')
 
     function getData(number) {
+        setCurrentNum(number);
         var startTime = performance.now()
         Axios.get(`http://localhost:3002/api/getData`, {
             params: {
@@ -35,6 +37,18 @@ export default function DataUse({ setTransactionTime }) {
         });
     }
 
+    function simulateData() {
+
+        Axios.post(`http://localhost:3002/api/simulateData`, {
+            phone_num: currentNum,
+            accountNo: accountNumber
+        })
+        .then(response => {
+            getData(currentNum);
+        })
+
+    }
+
     var dataRows = []
     for (var i = 0; i < dataUse.length; i++) {
         dataUse[i][0] = formatPhone(dataUse[i][0]);
@@ -51,15 +65,15 @@ export default function DataUse({ setTransactionTime }) {
                 var endTime = performance.now();
                 setTransactionTime(endTime - startTime);
                 setAccountLines([...data]);
+                getData(data[0][0]);
             });
     }
 
     useEffect (() => {
         getAccountLines();
-        getData('All');
     }, []);
 
-    var lineFilterOptions = [<option value="All">All</option>]
+    var lineFilterOptions = []
     for(let i = 0; i < accountLines.length; i++) {
         lineFilterOptions.push(<option value={accountLines[i][0]}>{formatPhone(accountLines[i][0])}</option>)
     }
@@ -70,6 +84,7 @@ export default function DataUse({ setTransactionTime }) {
         <select id="lineFilter" onChange={(e) => getData(e.target.value)}>
             {lineFilterOptions}
         </select>
+        <button id="simulateCallData" onClick={() => simulateData()}>Simulate Data for {formatPhone(currentNum)}</button>
         <Table headers={dataHeaders} rows={dataRows} classes={'callsData'}/>
         </>
     );

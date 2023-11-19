@@ -32,7 +32,7 @@ export default function EditInfo({accountDetails, setAccountDetails, setTransact
         setZipCode(accountDetails[4]);
         setError(false);
         setEmptyClass('');
-        
+
     }
 
     function editAccount() {
@@ -46,7 +46,7 @@ export default function EditInfo({accountDetails, setAccountDetails, setTransact
             zipCode: zipCode
         })
         .then(response => {
-            if(response.data != 'Line Created') {
+            if(response.data != 'Account Updated') {
                 if(response.data == 23514) {
                     setEmptyClass('empty')
                     setErrorMessage(' - Required Fields Missing.')
@@ -84,7 +84,7 @@ export default function EditInfo({accountDetails, setAccountDetails, setTransact
 
     return (
         <>
-        {error ? <div id="errorMessage">WARNING: Account Creation Failed{errorMessage}</div> : ''}
+        {error ? <div id="errorMessage">WARNING: Account Update Failed{errorMessage}</div> : ''}
         <h3>Edit Account</h3>
         <p className="warning">WARNING: Please do not input sensitive date as this form is for test only and is not secure.</p>
         <div className="form">            

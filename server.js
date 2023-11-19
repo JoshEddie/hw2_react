@@ -144,78 +144,6 @@ async function payment(paymentAmmount, phone_account_no, bank_account_no, dateTi
 
 }
 
-async function phoneCall(callFrom, callTo, callLengthMins, callDate) {
-
-    try {
-        await pool.query(`
-            INSERT INTO call (call_from, call_to, call_length_mins, call_date)
-            VALUES ('${callFrom}', '${callTo}', ${callLengthMins}, DATE '${callDate}');
-        `)
-    }
-    catch (err) {
-        console.log("Error phoneCall(): " + err.message)
-    }
-}
-
-async function dataUse(phoneNumber, mbUsed, dataDate) {
-
-    try {
-        await pool.query(`
-            INSERT INTO data (phone_number, mb_used, data_date)
-            VALUES ('${phoneNumber}', ${mbUsed}, DATE '${dataDate}');
-        `)
-        return '';
-    }
-    catch (err) {
-        console.log("Error dataUse(): " + err.message)
-    }
-
-}
-
-async function chargeBalance(cost, ssn) {
-
-    let retryCount = 0;
-    const maxRetries = 3;
-
-    while (retryCount < maxRetries) {
-        try {
-
-            await pool.query('BEGIN');
-
-            const updateBalance = await pool.query(`
-                UPDATE account
-                SET balance_cents = balance_cents + ${cost}
-                WHERE account_no = '${ssn}'
-                RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
-            `)
-
-            const updateBankBalance = await pool.query(`
-                UPDATE bank_account
-                SET balance_cents = balance_cents - ${cost}
-                WHERE account_no = '${ssn}'
-                RETURNING (balance_cents / 100.00)::MONEY as balancedollar;
-            `)
-
-            await pool.query('COMMIT');
-
-            return [updateBalance.rows[0].balancedollar, updateBankBalance.rows[0].balancedollar]; // Success, exit the loop
-        } catch (err) {
-            await pool.query('ROLLBACK');
-            if (err.code === '40P01' && retryCount < maxRetries - 1) {
-                // Deadlock detected, retry after a short delay
-                retryCount++;
-                await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait for 1 second before retrying
-            } else {
-                console.error('Error updating balance:', err);
-                break;
-            }
-        }
-    }
-    console.error('Max retries reached, unable to update balance');
-    return "error";
-
-}
-
 app.get('/', async (req, res) => {
     
     res.send(`
@@ -1434,6 +1362,142 @@ app.get("/api/getPayments", async(req,res) => {
         console.log("Error 10: " + err)
         return;
     }
+})
+
+app.post("/api/simulateCall", async (req,res) => {
+
+    const phone_num = req.body.phone_num;
+    const accountNo = req.body.accountNo;
+
+
+    try {
+
+        const account_info = await pool.query(`
+            SELECT plan_type, bank_account.account_no AS ban FROM phone_account
+            JOIN payment_method ON phone_account.account_no = payment_method.phone_account_no
+            JOIN bank_account ON bank_account.account_no = payment_method.bank_account_no
+            WHERE phone_account.account_no = '${accountNo}';
+        `)
+            
+        const prices = await pool.query(`
+            SELECT call_price_cents, data_price_cents FROM plan
+            WHERE plan_name = '${account_info.rows[0].plan_type}';
+        `)
+
+        var call_length = Math.round(360 / (Math.random() * 360 + 1));
+        let call_cost = call_length * Number(prices.rows[0].call_price_cents);
+
+        await pool.query(`
+            BEGIN;
+
+            INSERT INTO call (call_from, call_to, call_length_mins, call_date)
+                VALUES ('${phone_num}', '${generateNumber(10)}', ${call_length}, NOW());
+
+            UPDATE phone_account
+                SET balance_cents = balance_cents - ${call_cost}
+                WHERE account_no = '${accountNo}'
+                RETURNING balance_cents;
+
+            COMMIT;
+
+            END;
+
+        `)
+        .then(function (result) {
+
+            transactionSQL.write(`BEGIN;\n\n`);
+            transactionSQL.write(`INSERT INTO call (call_from, call_to, call_length_mins, call_date)\n`);
+            transactionSQL.write(`\tVALUES ('${phone_num}', '${generateNumber(10)}', ${call_length}, NOW());\n\n`);
+            transactionSQL.write(`UPDATE phone_account\n`);
+            transactionSQL.write(`\tSET balance_cents = balance_cents - ${call_cost}\n`);
+            transactionSQL.write(`\tWHERE account_no = '${accountNo}'\n`);
+            transactionSQL.write(`\tRETURNING balance_cents;\n\n`);
+            transactionSQL.write(`COMMIT;\n\n`);
+            transactionSQL.write(`END;\n\n`);
+
+            if(account_info.rows[0].plan_type == 'Pre-Paid' && result[2].rows[0].balance_cents < 0) {
+
+                payment(4000, accountNo, account_info.rows[0].ban, 'NOW()', true, '');
+
+            }
+
+            console.log("call created")
+            res.send("Call created")
+
+        });
+
+    } catch(err) {
+        console.log(err)
+    }
+
+})
+
+app.post("/api/simulateData", async (req,res) => {
+
+    const phone_num = req.body.phone_num;
+    const accountNo = req.body.accountNo;
+
+
+    try {
+
+        const account_info = await pool.query(`
+            SELECT plan_type, bank_account.account_no AS ban FROM phone_account
+            JOIN payment_method ON phone_account.account_no = payment_method.phone_account_no
+            JOIN bank_account ON bank_account.account_no = payment_method.bank_account_no
+            WHERE phone_account.account_no = '${accountNo}';
+        `)
+            
+        const prices = await pool.query(`
+            SELECT call_price_cents, data_price_cents FROM plan
+            WHERE plan_name = '${account_info.rows[0].plan_type}';
+        `)
+
+        var mb_used = Math.floor(500 / (Math.random() * 500 + 1)) + Math.random();
+        let data_cost = Math.floor((mb_used / 1000) * Number(prices.rows[0].data_price_cents));
+
+        await pool.query(`
+            BEGIN;
+
+            INSERT INTO data (phone_number, mb_used, data_date)
+                VALUES ('${phone_num}', ${mb_used}, NOW());
+
+            UPDATE phone_account
+                SET balance_cents = balance_cents - ${data_cost}
+                WHERE account_no = '${accountNo}'
+                RETURNING balance_cents;
+
+            COMMIT;
+
+            END;
+
+        `)
+        .then(function (result) {
+
+            transactionSQL.write(`BEGIN;\n\n`);
+            transactionSQL.write(`INSERT INTO data (phone_number, mb_used, data_date)\n`);
+            transactionSQL.write(`\tVALUES ('${phone_num}', ${mb_used}, NOW());\n\n`);
+            transactionSQL.write(`UPDATE phone_account\n`);
+            transactionSQL.write(`\tSET balance_cents = balance_cents - ${data_cost}\n`);
+            transactionSQL.write(`\tWHERE account_no = '${accountNo}'\n`);
+            transactionSQL.write(`\tRETURNING balance_cents;\n\n`);
+            transactionSQL.write(`COMMIT;\n\n`);
+            transactionSQL.write(`END;\n\n`);
+
+            if(account_info.rows[0].plan_type == 'Pre-Paid' && result[2].rows[0].balance_cents < 0) {
+
+                payment(4000, accountNo, account_info.rows[0].ban, 'NOW()', true, '');
+
+            }
+
+            console.log("call created")
+            res.send("Call created")
+
+        });
+
+    } catch(err) {
+        console.log(err)
+    }
+
 })
 
 app.listen(port, () => {

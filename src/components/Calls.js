@@ -25,8 +25,10 @@ export default function Calls({ setTransactionTime }) {
 
     var callsHeaders = ['Call From', 'Call To', 'Call Length', 'Date', 'Time'];
     const[calls, setCalls] = useState([]);
+    const[currentNum, setCurrentNum] = useState('')
 
     function getCalls(number) {
+        setCurrentNum(number);
         var startTime = performance.now()
         Axios.get(`http://localhost:3002/api/getCalls`, {
             params: {
@@ -44,6 +46,19 @@ export default function Calls({ setTransactionTime }) {
                 setCalls([])
             }
         });
+
+    }
+
+    function simulateCall() {
+
+        Axios.post(`http://localhost:3002/api/simulateCall`, {
+            phone_num: currentNum,
+            accountNo: accountNumber
+        })
+        .then(response => {
+            getCalls(currentNum);
+        })
+
     }
 
     var callRows = []
@@ -64,15 +79,15 @@ export default function Calls({ setTransactionTime }) {
                 var endTime = performance.now();
                 setTransactionTime(endTime - startTime);
                 setAccountLines([...data]);
+                getCalls(data[0][0]);
             });
     }
 
     useEffect (() => {
         getAccountLines();
-        getCalls('All');
     }, []);
 
-    var lineFilterOptions = [<option value="All">All</option>]
+    var lineFilterOptions = []
     for(let i = 0; i < accountLines.length; i++) {
         lineFilterOptions.push(<option value={accountLines[i][0]}>{formatPhone(accountLines[i][0])}</option>)
     }
@@ -83,6 +98,7 @@ export default function Calls({ setTransactionTime }) {
         <select id="lineFilter" onChange={(e) => getCalls(e.target.value)}>
             {lineFilterOptions}
         </select>
+        <button id="simulateCallData" onClick={() => simulateCall()}>Simulate Call for {formatPhone(currentNum)}</button>
         <Table headers={callsHeaders} rows={callRows} classes={'callsData'}/>
         </>
     );
