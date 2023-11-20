@@ -14,9 +14,12 @@ Phase1: https://github.com/JoshEddie/hw2_react/releases/tag/Phase1
 1. Create Account
 2. Search for account via first name, last name, or phone number
 3. Viewing balance/making payment
-4. Lines associated with account
-5. Sign out to go back to account search
-
+4. Lines associated with account.
+   Editing Line or Adding a Line.
+5. Viewing Calls made on account or simulating a call
+6. Viewing data uses made on account or simulating data use
+7. Editing Account Info
+8. Sign out to go back to account search
 
 # Running Sever & Application
 
