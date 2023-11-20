@@ -65,6 +65,9 @@ export default function NetworkAdmin({ setTransactionTime }) {
             case 'payment':
                 orderColumn = ' ORDER BY payment_date DESC'
                 break;
+            case 'bank_account':
+                orderColumn = ' ORDER BY account_no'
+                break;
             default:
                 orderColumn = ''
         }
@@ -210,7 +213,7 @@ export default function NetworkAdmin({ setTransactionTime }) {
 
     return (
         <>
-        <button id="switchtoAdmin" onClick={() => navigate('/')}>Account Search</button>
+        <button id="switchtoAdmin" onClick={() => navigate('/')}>User Interface</button>
         <section className="infoSection" id="NetworkInfo">
         {error ? <div id="errorMessage">{errorMessage}</div> : ''}
         <h3>Network Admin</h3>

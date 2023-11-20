@@ -137,7 +137,7 @@ async function payment(paymentAmmount, phone_account_no, bank_account_no, dateTi
 
     } catch (err) {
 
-        await pool.query(`ROLLBACK`);
+        await pool.query(`ROLLBACK;`);
         console.log("Payment Failed " + err);
 
     }
@@ -641,15 +641,24 @@ app.get("/api/getTable", async(req, res) => {
         const table = req.query.table;
         const order = req.query.order;
 
-        const result = await pool.query(`SELECT * FROM ${table}${order} LIMIT 4000;`);
-        querySQL.write(`SELECT * FROM ${table}${order}\n`);
-        querySQL.write(`LIMIT 4000;\n\n`);
+        await pool.query(`
+            SELECT * FROM ${table}${order}
+                LIMIT 4000;
+        `)
+        .then(result => {
+
+            querySQL.write(`SELECT * FROM ${table}${order}\n`);
+            querySQL.write(`LIMIT 4000;\n\n`);
+
+            if (result.rows.length < 1) {
+                res.send({name: "No results"})
+                return;
+            }
+            
+            res.send(result.rows)
+
+        });
         
-        if (result.rows.length < 1) {
-            res.send({name: "No results"})
-            return;
-        }
-        res.send(result.rows)
     }
     catch (err) {
         console.log(err)
@@ -739,7 +748,7 @@ app.post("/api/createAccount", async (req,res) => {
             transactionSQL.write(`BEGIN;\n\n`);
             transactionSQL.write(`INSERT INTO phone_account VALUES\n`);
             transactionSQL.write(`\t(nextval('phone_account_no_sequence'), '${planType}', '${autoPayment}', '${streetAddress}', '${city}', '${state}', '${zipCode}')\n`);
-            transactionSQL.write(`RETURNING account_no;\n\n`)
+            transactionSQL.write(`\tRETURNING account_no;\n\n`)
             transactionSQL.write(`INSERT INTO bank_account VALUES\n`);
             transactionSQL.write(`\t(nextval('bank_account_no_sequence'), ${Number(generateNumber(5)) + 10000});\n\n`);
             transactionSQL.write(`INSERT INTO customer VALUES\n`);
@@ -918,10 +927,26 @@ app.post("/api/updateAccountDetails", async(req,res) => {
             END;
 
         `)
+        .then(result => {
 
-        res.send("Account Updated")
+            transactionSQL.write(`BEGIN;\n\n`);
+            transactionSQL.write(`UPDATE phone_account\n`);
+            transactionSQL.write(`\tSET street_address = '${streetAddress}',\n`);
+            transactionSQL.write(`\tcity = '${city}',\n`);
+            transactionSQL.write(`\tst = '${state}',\n`);
+            transactionSQL.write(`\tzip_code = '${zipCode}',\n`);
+            transactionSQL.write(`\tplan_type = '${planType}'\n`);
+            transactionSQL.write(`\tWHERE account_no = '${accountNo}';\n\n`);
+            transactionSQL.write(`COMMIT;\n\n`);
+            transactionSQL.write(`END;\n\n`);
+
+            res.send("Account Updated");
+
+        })
+
 
     } catch(err) {
+
         console.log("account update failed: " + err)
         await pool.query(`ROLLBACK;`)
         res.send(err.code)
@@ -1121,7 +1146,7 @@ app.get("/api/accountLines/:accountNo", async (req, res) => {
         .then(function (result) {
 
             querySQL.write(`WITH calls AS (\n`);
-            querySQL.write(`\tSELECT number, first_name, last_name, TO_CHAR(SUM(COALESCE(call_length_mins, 0)), 'fm999G999') as minutes\n`);
+            querySQL.write(`\tSELECT number, model, first_name, last_name, TO_CHAR(SUM(COALESCE(call_length_mins, 0)), 'fm999G999') as minutes\n`);
             querySQL.write(`\tFROM customer\n`);
             querySQL.write(`\tJOIN phone ON customer.ssn = phone.user_ssn\n`);
             querySQL.write(`\tLEFT JOIN call ON phone.number = call.call_from OR phone.number = call.call_to\n`);
@@ -1135,8 +1160,7 @@ app.get("/api/accountLines/:accountNo", async (req, res) => {
             querySQL.write(`)\n`);
             querySQL.write(`SELECT number, model, first_name, last_name, minutes, COALESCE(data_used, '0') as data_used\n`);
             querySQL.write(`FROM calls\n`);
-            querySQL.write(`LEFT JOIN dataUsed ON calls.number = dataUsed.phone_number\n`);
-            querySQL.write(`JOIN phone_model ON calls.number = phone_model.phone_number;\n\n`);
+            querySQL.write(`LEFT JOIN dataUsed ON calls.number = dataUsed.phone_number;\n\n`);
 
             var lines = []
 
@@ -1166,11 +1190,6 @@ app.get("/api/getCalls", async (req, res) => {
 
     const accountNo = req.query.accountNo;
     const phone_num = req.query.phone_num;
-    let phone_num_condition = '';
-
-    if(phone_num != 'All') {
-        phone_num_condition = ` AND phone.number = '${phone_num}'`
-    }
 
     console.log("Get calls: " + accountNo + " " + phone_num);
 
@@ -1178,22 +1197,20 @@ app.get("/api/getCalls", async (req, res) => {
 
         await pool.query(`
             SELECT call_from, call_to, call_length_mins as minutes, TO_CHAR(call_date,'MM-DD-YYYY') as Date, TO_CHAR(call_date,'HH24:MI:SS') as Time
-            FROM call
-            JOIN phone ON phone.number = call.call_from OR phone.number = call.call_to
-            JOIN customer ON customer.ssn = phone.user_ssn
-            WHERE customer.account_no = '${accountNo}'${phone_num_condition}
-            GROUP BY call_from, call_to, minutes, Date, Time
-            ORDER BY date DESC, time DESC;
+                FROM call
+                JOIN phone ON phone.number = call.call_from OR phone.number = call.call_to
+                WHERE phone.number = '${phone_num}'
+                GROUP BY call_from, call_to, minutes, Date, Time
+                ORDER BY date DESC, time DESC;
         `)
         .then(function (result) {
 
             querySQL.write(`SELECT call_from, call_to, call_length_mins as minutes, TO_CHAR(call_date,'MM-DD-YYYY') as Date, TO_CHAR(call_date,'HH24:MI:SS') as Time\n`);
-            querySQL.write(`FROM call\n`);
-            querySQL.write(`JOIN phone ON phone.number = call.call_from OR phone.number = call.call_to\n`);
-            querySQL.write(`JOIN customer ON customer.ssn = phone.user_ssn\n`);
-            querySQL.write(`WHERE customer.account_no = '${accountNo}'${phone_num_condition}\n`);
-            querySQL.write(`GROUP BY call_from, call_to, minutes, Date, Time\n`);
-            querySQL.write(`ORDER BY date DESC, time DESC;\n\n`);
+            querySQL.write(`\tFROM call\n`);
+            querySQL.write(`\tJOIN phone ON phone.number = call.call_from OR phone.number = call.call_to\n`);
+            querySQL.write(`\tWHERE phone.number = '${phone_num}'\n`);
+            querySQL.write(`\tGROUP BY call_from, call_to, minutes, Date, Time\n`);
+            querySQL.write(`\tORDER BY date DESC, time DESC;\n\n`);
 
             console.log("Number of Calls: " + result.rows.length)
             
@@ -1229,14 +1246,9 @@ app.get("/api/getCalls", async (req, res) => {
 app.get("/api/getData", async (req, res) => {
 
     const accountNo = req.query.accountNo;
-    console.log("Get Data: " + accountNo);
-    
     const phone_num = req.query.phone_num;
-    let phone_num_condition = '';
 
-    if(phone_num != 'All') {
-        phone_num_condition = ` AND phone.number = '${phone_num}'`
-    }
+    console.log("Get Data: " + accountNo);
 
     try {
 
@@ -1244,20 +1256,18 @@ app.get("/api/getData", async (req, res) => {
             SELECT phone_number, mb_used, TO_CHAR(data_date,'MM-DD-YYYY') as Date, TO_CHAR(data_date,'HH24:MI:SS') as Time
             FROM data
             JOIN phone ON phone.number = data.phone_number
-            JOIN customer ON customer.ssn = phone.user_ssn
-            WHERE customer.account_no = '${accountNo}'${phone_num_condition}
+            WHERE phone.number = '${phone_num}'
             GROUP BY phone_number, mb_used, Date, Time
             ORDER BY date DESC, time DESC;
         `)
         .then(function (result) {
 
             querySQL.write(`SELECT phone_number, mb_used, TO_CHAR(data_date,'MM-DD-YYYY') as Date, TO_CHAR(data_date,'HH24:MI:SS') as Time\n`);
-            querySQL.write(`FROM data\n`);
-            querySQL.write(`JOIN phone ON phone.number = data.phone_number\n`);
-            querySQL.write(`JOIN customer ON customer.ssn = phone.user_ssn\n`);
-            querySQL.write(`WHERE customer.account_no = '${accountNo}'${phone_num_condition}\n`);
-            querySQL.write(`GROUP BY phone_number, mb_used, Date, Time\n`);
-            querySQL.write(`ORDER BY date DESC, time DESC;\n\n`);
+            querySQL.write(`\tFROM data\n`);
+            querySQL.write(`\tJOIN phone ON phone.number = data.phone_number\n`);
+            querySQL.write(`\tWHERE phone.number = '${phone_num}'\n`);
+            querySQL.write(`\tGROUP BY phone_number, mb_used, Date, Time\n`);
+            querySQL.write(`\tORDER BY date DESC, time DESC;\n\n`);
 
             console.log("Number of Data Use: " + result.rows.length)
             
