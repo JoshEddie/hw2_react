@@ -39,12 +39,15 @@ export default function DataUse({ setTransactionTime }) {
 
     function simulateData() {
 
+        var startTime = performance.now()
         Axios.post(`http://localhost:3002/api/simulateData`, {
             phone_num: currentNum,
             accountNo: accountNumber
         })
         .then(response => {
             getData(currentNum);
+            var endTime = performance.now();
+            setTransactionTime(endTime - startTime);
         })
 
     }

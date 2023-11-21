@@ -21,8 +21,6 @@ export default function EditInfo({accountDetails, setAccountDetails, setTransact
     const [planType, setPlanType] = useState("Talker")
     const [planRates, setPlanRates] = useState([0, 0])
 
-    // const[accountDetails, setAccountDetails] = useState([]);
-
     function getAccountDetails() {
 
         setPlanType(accountDetails[0]);
@@ -37,6 +35,7 @@ export default function EditInfo({accountDetails, setAccountDetails, setTransact
 
     function editAccount() {
 
+        var startTime = performance.now()
         Axios.post(`http://localhost:3002/api/updateAccountDetails`, {
             accountNo: accountNumber,
             planType: planType,
@@ -46,6 +45,8 @@ export default function EditInfo({accountDetails, setAccountDetails, setTransact
             zipCode: zipCode
         })
         .then(response => {
+            var endTime = performance.now()
+            setTransactionTime(endTime - startTime);
             if(response.data != 'Account Updated') {
                 if(response.data == 23514) {
                     setEmptyClass('empty')

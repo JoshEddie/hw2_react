@@ -13,7 +13,7 @@ export default function Main({transactionTime}) {
             <h1>Database HW2</h1>
             <h2><span className="greenText">Team Seven</span> Cell Phones</h2>
             <Outlet />
-            <div id="transactionTime">Transaction Time: {transactionTime} ms</div>
+            <div id="transactionTime">Query/Transaction Time: {transactionTime} ms</div>
         </main>
     )
 

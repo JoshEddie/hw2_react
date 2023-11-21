@@ -51,12 +51,15 @@ export default function Calls({ setTransactionTime }) {
 
     function simulateCall() {
 
+        var startTime = performance.now()
         Axios.post(`http://localhost:3002/api/simulateCall`, {
             phone_num: currentNum,
             accountNo: accountNumber
         })
         .then(response => {
             getCalls(currentNum);
+            var endTime = performance.now();
+            setTransactionTime(endTime - startTime);
         })
 
     }

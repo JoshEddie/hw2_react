@@ -44,6 +44,43 @@ export default function NetworkAdmin({ setTransactionTime }) {
 
     }
 
+    function extractTable(data) {
+
+        var headers = []
+        for (const [key, value] of Object.entries(data[0])) {
+            headers.push(key)
+        }
+
+        var rows = []
+        for(let i = 0; i < data.length; i++) {
+            var row = []
+            for (const [key, value] of Object.entries(data[i])) {
+                if(key == 'auto_payment' || key == 'pre_paid') {
+                    row.push(value ? 'True' : 'False')
+                }
+                else {
+                    row.push(value)
+                } 
+            }
+            rows.push(row)
+        }
+        setRowHeaders(headers)
+        setRows(rows)
+
+    }
+
+    function getReport(reportName) {
+
+        var startTime = performance.now()
+        Axios.get(`http://localhost:3002/api/report/${reportName}`)
+        .then(response => {
+            extractTable(response.data);
+            var endTime = performance.now();
+            setTransactionTime(endTime - startTime);
+        })
+
+    }
+
     function getTable(tableName) {
         let orderColumn = '';
         switch(tableName) {
@@ -98,25 +135,8 @@ export default function NetworkAdmin({ setTransactionTime }) {
             setEndTime(performance.now());
             setTransactionTime(endTime - startTime)
 
-            var headers = []
-            for (const [key, value] of Object.entries(data[0])) {
-                headers.push(key)
-            }
-            var rows = []
-            for(let i = 0; i < data.length; i++) {
-                var row = []
-                for (const [key, value] of Object.entries(data[i])) {
-                    if(key == 'auto_payment' || key == 'pre_paid') {
-                        row.push(value ? 'True' : 'False')
-                    }
-                    else {
-                        row.push(value)
-                    } 
-                }
-                rows.push(row)
-            }
-            setRowHeaders(headers)
-            setRows(rows)
+            extractTable(data);
+
             setDatabaseIntialized(true)
         });
 
@@ -247,6 +267,13 @@ export default function NetworkAdmin({ setTransactionTime }) {
                     <button onClick={() => warningTable(deleteTable)}>Delete</button>
                     {/* <button onClick={() => warningTable(dropTable)}>Drop</button> */}
                 </nav>
+                <nav id="reportNav">
+                        <button onClick={() => getReport('maxMinAvgSpend')}>High/Low/Avg Spend</button>
+                        <button onClick={() => getReport('highestGrossingPlan')}>Plan Gross</button>
+                        <button onClick={() => getReport('mostPopularPlan')}>Popular Plan</button>
+                        <button onClick={() => getReport('mostPopularPhoneModel')}>Popular Models</button>
+                        <button onClick={() => getReport('numberCustomersPerState')}>Customer Location</button>
+                    </nav>
                 <Table headers={rowHeaders} rows={rowObjects}/>
                 </>
                 :

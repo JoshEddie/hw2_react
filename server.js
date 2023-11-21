@@ -654,7 +654,7 @@ app.get("/api/getTable", async(req, res) => {
                 res.send({name: "No results"})
                 return;
             }
-            
+
             res.send(result.rows)
 
         });
@@ -1509,6 +1509,192 @@ app.post("/api/simulateData", async (req,res) => {
     }
 
 })
+
+app.get(`/api/report/maxMinAvgSpend` , async(req,res) => {
+
+    try {
+
+        await pool.query(`
+            SELECT
+                MAX(amount / 100.00)::MONEY AS highest_spend,
+                MIN(amount / 100.00)::MONEY AS lowest_spend,
+                AVG(amount / 100.00)::MONEY AS average_spend
+            FROM (
+                SELECT phone_account_no AS account_no, EXTRACT(MONTH FROM payment_date) AS month, EXTRACT(YEAR FROM payment_date) AS year, SUM(amount_cents * -1) as amount
+                FROM payment
+                GROUP BY account_no, month, year
+                ORDER BY amount DESC
+            ) AS month_totals;
+        `)
+        .then(result => {
+
+            querySQL.write(`SELECT\n`);
+            querySQL.write(`\tMAX(amount / 100.00)::MONEY AS highest_spend,\n`);
+            querySQL.write(`\tMIN(amount / 100.00)::MONEY AS lowest_spend,\n`);
+            querySQL.write(`\tAVG(amount / 100.00)::MONEY AS average_spend\n`);
+            querySQL.write(`FROM (\n`);
+            querySQL.write(`\tSELECT phone_account_no AS account_no, EXTRACT(MONTH FROM payment_date) AS month, EXTRACT(YEAR FROM payment_date) AS year, SUM(amount_cents * -1) as amount\n`);
+            querySQL.write(`\tFROM payment\n`);
+            querySQL.write(`\tGROUP BY account_no, month, year\n`);
+            querySQL.write(`\tORDER BY amount DESC\n`);
+            querySQL.write(`) AS month_totals;\n\n`);
+
+            res.send(result.rows);
+
+        })
+
+    } catch (err) {
+        res.send(err.code)
+        console.log(err);
+        return;
+    }
+
+});
+
+app.get(`/api/report/highestGrossingPlan` , async(req,res) => {
+
+    try {
+
+        await pool.query(`
+            WITH revenue AS (
+                SELECT plan_type, SUM(amount_cents * -1 / 100.00) AS total_revenue
+                FROM payment
+                JOIN phone_account ON payment.phone_account_no = phone_account.account_no
+                GROUP BY plan_type
+            ),
+            customer_count AS (
+                SELECT plan_type, count(*) AS line_count
+                FROM customer
+                JOIN phone_account ON customer.account_no = phone_account.account_no
+                GROUP BY plan_type
+            )
+            SELECT revenue.plan_type, revenue.total_revenue::MONEY, SUM(revenue.total_revenue / line_count)::MONEY AS avg_per_customer
+                FROM revenue
+                JOIN customer_count ON revenue.plan_type = customer_count.plan_type
+                GROUP BY revenue.plan_type, revenue.total_revenue
+                ORDER BY total_revenue DESC;
+
+        `)
+        .then(result => {
+
+            querySQL.write(`WITH revenue AS (\n`);
+            querySQL.write(`\tSELECT plan_type, SUM(amount_cents * -1 / 100.00) AS total_revenue\n`);
+            querySQL.write(`\tFROM payment\n`);
+            querySQL.write(`\tJOIN phone_account ON payment.phone_account_no = phone_account.account_no\n`);
+            querySQL.write(`\tGROUP BY plan_type\n`);
+            querySQL.write(`),\n`);
+            querySQL.write(`customer_count AS (\n`);
+            querySQL.write(`\tSELECT plan_type, count(*) AS line_count\n`);
+            querySQL.write(`\tFROM customer\n`);
+            querySQL.write(`\tJOIN phone_account ON customer.account_no = phone_account.account_no\n`);
+            querySQL.write(`\tGROUP BY plan_type\n`);
+            querySQL.write(`)\n`);
+            querySQL.write(`SELECT revenue.plan_type, revenue.total_revenue::MONEY, SUM(revenue.total_revenue / line_count)::MONEY AS avg_per_customer\n`);
+            querySQL.write(`\tFROM revenue\n`);
+            querySQL.write(`\tJOIN customer_count ON revenue.plan_type = customer_count.plan_type\n`);
+            querySQL.write(`\tGROUP BY revenue.plan_type, revenue.total_revenue\n`);
+            querySQL.write(`\tORDER BY total_revenue DESC;\n\n`);
+
+            res.send(result.rows);
+
+        })
+
+    } catch (err) {
+        res.send(err.code)
+        console.log(err);
+        return;
+    }
+
+});
+
+app.get(`/api/report/mostPopularPlan` , async(req,res) => {
+
+    try {
+
+        await pool.query(`
+        SELECT plan_type, COUNT(*) AS plan_count
+            FROM phone_account
+            GROUP BY plan_type
+            ORDER BY plan_count DESC;
+        `)
+        .then(result => {
+
+            querySQL.write(`SELECT plan_type, COUNT(*) AS plan_count\n`);
+            querySQL.write(`\tFROM phone_account\n`);
+            querySQL.write(`\tGROUP BY plan_type\n`);
+            querySQL.write(`\tORDER BY plan_count DESC;\n\n`);
+
+            res.send(result.rows);
+
+        })
+
+    } catch (err) {
+        res.send(err.code)
+        console.log(err);
+        return;
+    }
+
+});
+
+app.get(`/api/report/mostPopularPhoneModel` , async(req,res) => {
+
+    try {
+
+        await pool.query(`
+            SELECT model, COUNT(*) AS model_count
+                FROM phone
+                GROUP BY model
+                ORDER BY model_count DESC;
+        `)
+        .then(result => {
+
+            querySQL.write(`SELECT model, COUNT(*) AS model_count\n`);
+            querySQL.write(`\tFROM phone\n`);
+            querySQL.write(`\tGROUP BY model\n`);
+            querySQL.write(`\tORDER BY model_count DESC;\n\n`);
+
+            res.send(result.rows);
+
+        })
+
+    } catch (err) {
+        res.send(err.code)
+        console.log(err);
+        return;
+    }
+
+});
+
+app.get(`/api/report/numberCustomersPerState` , async(req,res) => {
+
+    try {
+
+        await pool.query(`
+        SELECT city, st AS state, COUNT(*)
+            FROM phone_account
+            JOIN customer ON customer.account_no = phone_account.account_no
+            GROUP BY city, state
+            ORDER BY COUNT(*) DESC;
+        `)
+        .then(result => {
+            
+            querySQL.write(`SELECT city, st AS state, COUNT(*)\n`);
+            querySQL.write(`\tFROM phone_account\n`);
+            querySQL.write(`\tJOIN customer ON customer.account_no = phone_account.account_no\n`);
+            querySQL.write(`\tGROUP BY city, state\n`);
+            querySQL.write(`\tORDER BY COUNT(*) DESC;\n\n`);
+
+            res.send(result.rows);
+
+        })
+
+    } catch (err) {
+        res.send(err.code)
+        console.log(err);
+        return;
+    }
+
+});
 
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}/`);

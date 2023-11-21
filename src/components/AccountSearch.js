@@ -79,12 +79,15 @@ export default function AccountSearch({ setTransactionTime }) {
     function getAccount(input) {
         setSearchInput(input)
         if(input.length > 0) {
+            var startTime = performance.now();
             fetch(`http://localhost:3002/api/accounts/${searchType}&${input}`)
             .then(response => {
                 return response.json();
             })
             .then(data => {
                 setAccountList([...data]);
+                var endTime = performance.now();
+                setTransactionTime(endTime - startTime)
             });
             setShowAccounts(true)
         }

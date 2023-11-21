@@ -81,17 +81,6 @@ export default function Billing({ setTransactionTime }) {
         })
         .then(data => {
 
-            // if(data.name == "error") {
-            //     console.log("Error")
-            //     return;
-            // }
-            // else if(data.name == "No results") {
-            //     setError(true)
-            //     setErrorMessage("No results from " + tableName)
-            //     console.log("No results")
-            //     return;
-            // }
-
             var headers = []
             for (const [key, value] of Object.entries(data[0])) {
                 headers.push(key)
