@@ -1,5 +1,6 @@
 Project stored at https://github.com/JoshEddie/hw2_react \
 Phase1: https://github.com/JoshEddie/hw2_react/releases/tag/Phase1
+Phase2: https://github.com/JoshEddie/hw2_react/releases/tag/Phase2
 
 # Getting Started 
 
