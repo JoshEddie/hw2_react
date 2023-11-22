@@ -127,8 +127,8 @@ async function payment(paymentAmmount, phone_account_no, bank_account_no, dateTi
                 transactionSQL.write(`END;\n\n`);
             }
 
-            console.log("Balance result: " + [result[1].rows[0].balancedollar, result[2].rows[0].balancedollar])
             if(response != '') {
+                console.log("Balance result: " + [result[1].rows[0].balancedollar, result[2].rows[0].balancedollar])
                 response.send([result[1].rows[0].balancedollar, result[2].rows[0].balancedollar]);
             }
             return ([result[1].rows[0].balancedollar, result[2].rows[0].balancedollar])
@@ -1516,9 +1516,9 @@ app.get(`/api/report/maxMinAvgSpend` , async(req,res) => {
 
         await pool.query(`
             SELECT
-                MAX(amount / 100.00)::MONEY AS highest_spend,
-                MIN(amount / 100.00)::MONEY AS lowest_spend,
-                AVG(amount / 100.00)::MONEY AS average_spend
+                MAX(amount / 100.00)::MONEY AS customer_max_monthly_spend,
+                MIN(amount / 100.00)::MONEY AS customer_min_monthly_spend,
+                AVG(amount / 100.00)::MONEY AS customer_avg_monthly_spend
             FROM (
                 SELECT phone_account_no AS account_no, EXTRACT(MONTH FROM payment_date) AS month, EXTRACT(YEAR FROM payment_date) AS year, SUM(amount_cents * -1) as amount
                 FROM payment
@@ -1529,9 +1529,9 @@ app.get(`/api/report/maxMinAvgSpend` , async(req,res) => {
         .then(result => {
 
             querySQL.write(`SELECT\n`);
-            querySQL.write(`\tMAX(amount / 100.00)::MONEY AS highest_spend,\n`);
-            querySQL.write(`\tMIN(amount / 100.00)::MONEY AS lowest_spend,\n`);
-            querySQL.write(`\tAVG(amount / 100.00)::MONEY AS average_spend\n`);
+            querySQL.write(`\tMAX(amount / 100.00)::MONEY AS customer_max_monthly_spend,\n`);
+            querySQL.write(`\tMIN(amount / 100.00)::MONEY AS customer_min_monthly_spend,\n`);
+            querySQL.write(`\tAVG(amount / 100.00)::MONEY AS customer_avg_monthly_spend\n`);
             querySQL.write(`FROM (\n`);
             querySQL.write(`\tSELECT phone_account_no AS account_no, EXTRACT(MONTH FROM payment_date) AS month, EXTRACT(YEAR FROM payment_date) AS year, SUM(amount_cents * -1) as amount\n`);
             querySQL.write(`\tFROM payment\n`);

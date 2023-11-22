@@ -268,7 +268,7 @@ export default function NetworkAdmin({ setTransactionTime }) {
                     {/* <button onClick={() => warningTable(dropTable)}>Drop</button> */}
                 </nav>
                 <nav id="reportNav">
-                        <button onClick={() => getReport('maxMinAvgSpend')}>High/Low/Avg Spend</button>
+                        <button onClick={() => getReport('maxMinAvgSpend')}>Monthly Revenue</button>
                         <button onClick={() => getReport('highestGrossingPlan')}>Plan Gross</button>
                         <button onClick={() => getReport('mostPopularPlan')}>Popular Plan</button>
                         <button onClick={() => getReport('mostPopularPhoneModel')}>Popular Models</button>
